@@ -1,4 +1,5 @@
 import { PaymentTransaction, PaymentRail, ThresholdLimits } from '../types/payment';
+import { cleanAccountNoForXml } from './bankLookup';
 
 /**
  * Standard CSV line parser that handles quotes, escaped quotes, and commas inside fields.
@@ -70,6 +71,8 @@ export function parsePaymentCsv(csvText: string, limits: ThresholdLimits): Payme
 
     const rawBankCode = colBankCode !== -1 ? cols[colBankCode] : cols[0] || '';
     const rawAccountNo = colAccountNo !== -1 ? cols[colAccountNo] : cols[1] || '';
+    // Format to 8 digits only (e.g. strips leading 0 from 9-digit accounts)
+    const formattedAccountNo = cleanAccountNoForXml(rawAccountNo);
     const indicator = colIndicator !== -1 ? cols[colIndicator] : '';
     const txCode = colTxCode !== -1 ? cols[colTxCode] : '50';
     const amountStr = colAmount !== -1 ? cols[colAmount] : cols[4] || '0';
@@ -85,7 +88,7 @@ export function parsePaymentCsv(csvText: string, limits: ThresholdLimits): Payme
     transactions.push({
       id: `tx-${i}-${Math.random().toString(36).substring(2, 7)}`,
       bankCode: rawBankCode,
-      accountNo: rawAccountNo,
+      accountNo: formattedAccountNo,
       indicator,
       transactionCode: txCode,
       amount: Math.round(amount * 100) / 100,

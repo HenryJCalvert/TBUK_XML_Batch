@@ -26,7 +26,7 @@ export function cleanAccountNoForXml(accountNo: string): string {
   } else if (digits.length < 8) {
     digits = digits.padStart(8, '0');
   }
-  return digits;
+  return digits.slice(0, 8);
 }
 
 export function validateUkAccountNo(accountNo: string): {

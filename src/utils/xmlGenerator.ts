@@ -71,7 +71,7 @@ export function generateLloydsBacsXml(
 ): string {
   const count = transactions.length;
   const isoTimestamp = new Date().toISOString();
-  const debtorAccountFormatted = `${debtor.debtorSortCode.replace(/\D/g, '')}-${debtor.debtorAccountNo.replace(/\D/g, '')}`;
+  const debtorAccountFormatted = `${cleanSortCodeForXml(debtor.debtorSortCode)}-${cleanAccountNoForXml(debtor.debtorAccountNo)}`;
   // BACS takes 3 business days; ensure ReqdExctnDt is at least 3 working days ahead
   const bacsExecutionDate = customBacsDate || debtor.bacsExecutionDate || calculateBacsEarliestExecutionDate(debtor.executionDate);
 
@@ -175,7 +175,7 @@ export function generateLloydsFasterPaymentsXml(
 ): string {
   const count = transactions.length;
   const isoTimestamp = new Date().toISOString();
-  const debtorAccountFormatted = `${debtor.debtorSortCode.replace(/\D/g, '')}-${debtor.debtorAccountNo.replace(/\D/g, '')}`;
+  const debtorAccountFormatted = `${cleanSortCodeForXml(debtor.debtorSortCode)}-${cleanAccountNoForXml(debtor.debtorAccountNo)}`;
 
   const txXmlItems = transactions
     .map((tx, idx) => {
@@ -284,7 +284,7 @@ export function generateO4bBatchCsv(
   const header = `"BATCH_NO","BANKCODE","ACCOUNTNO","INDICATOR","TRANSACTIONCODE","AMOUNT","TITLE","LODGEMENTREF","BOOKWANABANKCODE","BOOKWANAACCOUNTNO","REMITTERNAME"`;
   const rows = transactions.map((t) => {
     const bNum = t.o4bBatchNumber || batchNumber || 1;
-    return `"${bNum}","${cleanSortCodeForXml(t.bankCode)}","${cleanAccountNoForXml(t.accountNo)}","","50","${t.amount.toFixed(2)}","${t.title.replace(/"/g, '""')}","${(t.lodgementRef || '').replace(/"/g, '""')}","${debtor.debtorSortCode}","${debtor.debtorAccountNo}","${debtor.debtorName.replace(/"/g, '""')}"`;
+    return `"${bNum}","${cleanSortCodeForXml(t.bankCode)}","${cleanAccountNoForXml(t.accountNo)}","","50","${t.amount.toFixed(2)}","${t.title.replace(/"/g, '""')}","${(t.lodgementRef || '').replace(/"/g, '""')}","${cleanSortCodeForXml(debtor.debtorSortCode)}","${cleanAccountNoForXml(debtor.debtorAccountNo)}","${debtor.debtorName.replace(/"/g, '""')}"`;
   });
   return [header, ...rows].join('\n');
 }

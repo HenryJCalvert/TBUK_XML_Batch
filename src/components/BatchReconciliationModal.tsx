@@ -1,6 +1,7 @@
 import React from 'react';
 import { PaymentTransaction, DebtorConfig, FeeSchedule, DEFAULT_FEE_SCHEDULE } from '../types/payment';
 import { downloadFile } from '../utils/xmlGenerator';
+import { cleanAccountNoForXml, cleanSortCodeForXml } from '../utils/bankLookup';
 import {
   CheckCircle2,
   ShieldCheck,
@@ -145,7 +146,7 @@ export const BatchReconciliationModal: React.FC<BatchReconciliationModalProps> =
         const margin = tx.amount * marginMult;
         const net = margin - fee;
         lines.push(
-          `"${group}","${status}","O4B","${batchNo}","${fee.toFixed(2)}","${margin.toFixed(2)}","${net.toFixed(2)}","${tx.id}","${tx.title.replace(/"/g, '""')}","${tx.bankCode}","${tx.accountNo}","${tx.amount.toFixed(2)}","${(tx.lodgementRef || '').replace(/"/g, '""')}"`
+          `"${group}","${status}","O4B","${batchNo}","${fee.toFixed(2)}","${margin.toFixed(2)}","${net.toFixed(2)}","${tx.id}","${tx.title.replace(/"/g, '""')}","${cleanSortCodeForXml(tx.bankCode)}","${cleanAccountNoForXml(tx.accountNo)}","${tx.amount.toFixed(2)}","${(tx.lodgementRef || '').replace(/"/g, '""')}"`
         );
       });
 
@@ -161,7 +162,7 @@ export const BatchReconciliationModal: React.FC<BatchReconciliationModalProps> =
         const margin = tx.amount * marginMult;
         const net = margin - fee;
         lines.push(
-          `"${group}","${status}","BACS","${batchNo}","${fee.toFixed(2)}","${margin.toFixed(2)}","${net.toFixed(2)}","${tx.id}","${tx.title.replace(/"/g, '""')}","${tx.bankCode}","${tx.accountNo}","${tx.amount.toFixed(2)}","${(tx.lodgementRef || '').replace(/"/g, '""')}"`
+          `"${group}","${status}","BACS","${batchNo}","${fee.toFixed(2)}","${margin.toFixed(2)}","${net.toFixed(2)}","${tx.id}","${tx.title.replace(/"/g, '""')}","${cleanSortCodeForXml(tx.bankCode)}","${cleanAccountNoForXml(tx.accountNo)}","${tx.amount.toFixed(2)}","${(tx.lodgementRef || '').replace(/"/g, '""')}"`
         );
       });
 
@@ -177,7 +178,7 @@ export const BatchReconciliationModal: React.FC<BatchReconciliationModalProps> =
         const margin = tx.amount * marginMult;
         const net = margin - fee;
         lines.push(
-          `"${group}","${status}","FPS","${batchNo}","${fee.toFixed(2)}","${margin.toFixed(2)}","${net.toFixed(2)}","${tx.id}","${tx.title.replace(/"/g, '""')}","${tx.bankCode}","${tx.accountNo}","${tx.amount.toFixed(2)}","${(tx.lodgementRef || '').replace(/"/g, '""')}"`
+          `"${group}","${status}","FPS","${batchNo}","${fee.toFixed(2)}","${margin.toFixed(2)}","${net.toFixed(2)}","${tx.id}","${tx.title.replace(/"/g, '""')}","${cleanSortCodeForXml(tx.bankCode)}","${cleanAccountNoForXml(tx.accountNo)}","${tx.amount.toFixed(2)}","${(tx.lodgementRef || '').replace(/"/g, '""')}"`
         );
       });
 

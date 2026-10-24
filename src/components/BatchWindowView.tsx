@@ -4,7 +4,6 @@ import {
   formatSortCode,
   getBankNameFromSortCode,
   cleanAccountNoForXml,
-  validateUkAccountNo,
 } from '../utils/bankLookup';
 import { generateO4bBatchCsv, downloadFile } from '../utils/xmlGenerator';
 import {
@@ -669,23 +668,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                       <div className="text-[10px] text-slate-400 font-sans">{bankName}</div>
                     </td>
                     <td className="py-2.5 px-3 font-mono text-slate-700">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span>{tx.accountNo}</span>
-                        {(() => {
-                          const val = validateUkAccountNo(tx.accountNo);
-                          if (!val.isValid) {
-                            return (
-                              <span
-                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-sans font-semibold bg-amber-100 text-amber-800 border border-amber-300"
-                                title={`UK bank accounts are 8 digits. Auto-cleansed from ${val.rawDigitsCount} digits to ${val.cleaned} for Lloyds ISO 20022 XML export.`}
-                              >
-                                {val.rawDigitsCount}d ➔ {val.cleaned}
-                              </span>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </div>
+                      {cleanAccountNoForXml(tx.accountNo)}
                     </td>
                     <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 tabular-nums">
                       {formatGBP(tx.amount)}
