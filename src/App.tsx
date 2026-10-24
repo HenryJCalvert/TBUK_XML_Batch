@@ -13,6 +13,7 @@ import {
 } from './types/payment';
 import { parsePaymentCsv, determineRailByLimits } from './utils/csvParser';
 import { calculateSummaries } from './utils/calculations';
+import { getConsolidationStats } from './utils/consolidation';
 import { Header } from './components/Header';
 import { SummaryTotals } from './components/SummaryTotals';
 import { SliderControls } from './components/SliderControls';
@@ -47,7 +48,7 @@ export default function App() {
     ...DEFAULT_RAIL_TIME_CONFIG,
   });
 
-  // State: Debtor settings (Default Sort Code: 30-14-40, Account: 14438260, Entity: TRYBOOKING UK LIMITED, Ref: SUPP)
+  // State: Debtor settings (Default Sort Code: 30-14-40, Account: 14438260, Entity: TRYBOOKING UK LIMITED, Ref: TRYBOOKING PAYOUTS)
   const [debtor, setDebtor] = useState<DebtorConfig>({
     ...DEFAULT_DEBTOR_CONFIG,
   });
@@ -277,6 +278,8 @@ export default function App() {
     return calculateSummaries(transactions, profitMarginPercent, feeSchedule);
   }, [transactions, profitMarginPercent, feeSchedule]);
 
+  const consolidationStats = useMemo(() => getConsolidationStats(transactions), [transactions]);
+
   // For BACS and FPS, ONLY export the selected payment rows!
   const exportableTransactions = useMemo(() => {
     return transactions.filter((t) => {
@@ -309,6 +312,7 @@ export default function App() {
       <Header
         fileName={fileName}
         totalCount={transactions.length}
+        recordCount={consolidationStats.records}
         onOpenUpload={() => fileInputRef.current?.click()}
         onOpenOptimize={() => {
           if (transactions.length > 0) {

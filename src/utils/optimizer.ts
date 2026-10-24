@@ -207,10 +207,10 @@ export function runBalancedOptimization(
   });
 
   // Check provider balance: ensure each bank/provider has balanced distribution
-  // If all payments from one bank code ended up on O4B, distribute at least 1 to BACS if amount is reasonable
+  // If all payments to one sort code range ended up on O4B, distribute at least 1 to BACS if amount is reasonable
   const bankGroups = new Map<string, PaymentTransaction[]>();
   workingTxs.forEach((tx) => {
-    const code = tx.bankCode.slice(0, 2);
+    const code = tx.sortCode.replace(/\D/g, '').slice(0, 2);
     if (!bankGroups.has(code)) bankGroups.set(code, []);
     bankGroups.get(code)!.push(tx);
   });

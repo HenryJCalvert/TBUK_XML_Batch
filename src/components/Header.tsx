@@ -12,6 +12,7 @@ import {
 interface HeaderProps {
   fileName: string;
   totalCount: number;
+  recordCount?: number; // CSV records before identical records were consolidated
   onOpenUpload: () => void;
   onOpenOptimize: () => void;
   onOpenExport: () => void;
@@ -23,6 +24,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   fileName,
   totalCount,
+  recordCount,
   onOpenUpload,
   onOpenOptimize,
   onOpenExport,
@@ -56,7 +58,11 @@ export const Header: React.FC<HeaderProps> = ({
                       {fileName}
                     </span>
                     <span>·</span>
-                    <span>{totalCount} transactions</span>
+                    <span>
+                      {recordCount !== undefined && recordCount !== totalCount
+                        ? `${recordCount} records → ${totalCount} payments (${recordCount - totalCount} merged)`
+                        : `${totalCount} payments`}
+                    </span>
                     {isOptimized && (
                       <>
                         <span>·</span>

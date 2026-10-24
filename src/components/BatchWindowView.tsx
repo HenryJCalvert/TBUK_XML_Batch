@@ -1,11 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { Fragment, useState, useMemo } from 'react';
 import { PaymentTransaction, PaymentRail, ThresholdLimits, O4bBatchInfo, FeeSchedule, DEFAULT_FEE_SCHEDULE, DebtorConfig, DEFAULT_DEBTOR_CONFIG } from '../types/payment';
 import {
   formatSortCode,
   getBankNameFromSortCode,
-  cleanAccountNoForXml,
+  normaliseSortCode,
+  normaliseAccountNumber,
 } from '../utils/bankLookup';
 import { generateO4bBatchCsv, downloadFile } from '../utils/xmlGenerator';
+import { getConsolidationStats, isConsolidated, sourceRecordCount } from '../utils/consolidation';
 import {
   Search,
   ArrowUpDown,
@@ -18,6 +20,8 @@ import {
   ArrowRight,
   RotateCcw,
   Download,
+  ChevronRight,
+  Merge,
 } from 'lucide-react';
 
 interface BatchWindowViewProps {
@@ -64,8 +68,17 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
 }) => {
   const fees: FeeSchedule = feeSchedule || DEFAULT_FEE_SCHEDULE;
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortField, setSortField] = useState<'amount' | 'title' | 'bankCode'>('amount');
+  const [sortField, setSortField] = useState<'amount' | 'payeeName' | 'sortCode'>('amount');
   const [sortAsc, setSortAsc] = useState(false);
+  // Consolidated payments whose source records are folded out for review
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const formatGBP = (val: number) =>
     new Intl.NumberFormat('en-GB', {
@@ -85,7 +98,11 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
       const selCount = selectedInRail.length;
       const selAmount = selectedInRail.reduce((s, t) => s + t.amount, 0);
 
-      return { count, amount, selCount, selAmount };
+      // Payments vs. the CSV records they cover (identical records are consolidated)
+      const stats = getConsolidationStats(allInRail);
+      const selStats = getConsolidationStats(selectedInRail);
+
+      return { count, amount, selCount, selAmount, stats, selStats };
     };
 
     return {
@@ -127,10 +144,10 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
       // Filter by search query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
-        const matchesTitle = tx.title.toLowerCase().includes(query);
-        const matchesSort = tx.bankCode.includes(query) || formatSortCode(tx.bankCode).includes(query);
-        const matchesAccount = tx.accountNo.includes(query);
-        const matchesRef = tx.lodgementRef.toLowerCase().includes(query);
+        const matchesTitle = tx.payeeName.toLowerCase().includes(query);
+        const matchesSort = tx.sortCode.includes(query) || formatSortCode(tx.sortCode).includes(query);
+        const matchesAccount = tx.accountNumber.includes(query);
+        const matchesRef = tx.payeeReference.toLowerCase().includes(query);
         return matchesTitle || matchesSort || matchesAccount || matchesRef;
       }
       return true;
@@ -143,16 +160,16 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
       let result = 0;
       if (sortField === 'amount') {
         result = a.amount - b.amount;
-      } else if (sortField === 'title') {
-        result = a.title.localeCompare(b.title);
-      } else if (sortField === 'bankCode') {
-        result = a.bankCode.localeCompare(b.bankCode);
+      } else if (sortField === 'payeeName') {
+        result = a.payeeName.localeCompare(b.payeeName);
+      } else if (sortField === 'sortCode') {
+        result = a.sortCode.localeCompare(b.sortCode);
       }
       return sortAsc ? result : -result;
     });
   }, [filteredTransactions, sortField, sortAsc]);
 
-  const handleSort = (field: 'amount' | 'title' | 'bankCode') => {
+  const handleSort = (field: 'amount' | 'payeeName' | 'sortCode') => {
     if (sortField === field) {
       setSortAsc(!sortAsc);
     } else {
@@ -210,7 +227,12 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
 
             {/* Rows underneath: Total records count on left, Selected records count on right */}
             <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100 mt-1 font-mono">
-              <span>{railMetrics.ALL.count} records</span>
+              <span title={`${railMetrics.ALL.stats.records} CSV records paid as ${railMetrics.ALL.count} payments`}>
+                {railMetrics.ALL.count} payments
+                {railMetrics.ALL.stats.recordsMerged > 0 && (
+                  <span className="text-violet-700 font-semibold"> · {railMetrics.ALL.stats.recordsMerged} merged</span>
+                )}
+              </span>
               <span className={railMetrics.ALL.selCount > 0 ? 'text-emerald-700 font-semibold' : 'text-slate-400'}>
                 {railMetrics.ALL.selCount} selected
               </span>
@@ -244,7 +266,12 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
 
             {/* Rows underneath: Total records count on left, Selected records count on right */}
             <div className="flex items-center justify-between text-[11px] text-emerald-800/80 pt-1.5 border-t border-emerald-100 mt-1 font-mono">
-              <span>{railMetrics.O4B.count} records</span>
+              <span title={`${railMetrics.O4B.stats.records} CSV records paid as ${railMetrics.O4B.count} payments`}>
+                {railMetrics.O4B.count} payments
+                {railMetrics.O4B.stats.recordsMerged > 0 && (
+                  <span className="text-violet-700 font-semibold"> · {railMetrics.O4B.stats.recordsMerged} merged</span>
+                )}
+              </span>
               <span className={railMetrics.O4B.selCount > 0 ? 'text-emerald-900 font-bold' : 'text-slate-400'}>
                 {railMetrics.O4B.selCount} selected
               </span>
@@ -278,7 +305,12 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
 
             {/* Rows underneath: Total records count on left, Selected records count on right */}
             <div className="flex items-center justify-between text-[11px] text-blue-800/80 pt-1.5 border-t border-blue-100 mt-1 font-mono">
-              <span>{railMetrics.BACS.count} records</span>
+              <span title={`${railMetrics.BACS.stats.records} CSV records paid as ${railMetrics.BACS.count} payments`}>
+                {railMetrics.BACS.count} payments
+                {railMetrics.BACS.stats.recordsMerged > 0 && (
+                  <span className="text-violet-700 font-semibold"> · {railMetrics.BACS.stats.recordsMerged} merged</span>
+                )}
+              </span>
               <span className={railMetrics.BACS.selCount > 0 ? 'text-blue-900 font-bold' : 'text-slate-400'}>
                 {railMetrics.BACS.selCount} selected
               </span>
@@ -312,7 +344,12 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
 
             {/* Rows underneath: Total records count on left, Selected records count on right */}
             <div className="flex items-center justify-between text-[11px] text-red-800/80 pt-1.5 border-t border-red-100 mt-1 font-mono">
-              <span>{railMetrics.FasterPay.count} records</span>
+              <span title={`${railMetrics.FasterPay.stats.records} CSV records paid as ${railMetrics.FasterPay.count} payments`}>
+                {railMetrics.FasterPay.count} payments
+                {railMetrics.FasterPay.stats.recordsMerged > 0 && (
+                  <span className="text-violet-700 font-semibold"> · {railMetrics.FasterPay.stats.recordsMerged} merged</span>
+                )}
+              </span>
               <span className={railMetrics.FasterPay.selCount > 0 ? 'text-red-900 font-bold' : 'text-slate-400'}>
                 {railMetrics.FasterPay.selCount} selected
               </span>
@@ -480,7 +517,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search beneficiary, sort code..."
+              placeholder="Search payee, sort code..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-slate-900 placeholder:text-slate-400"
@@ -525,16 +562,16 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                 <th className="py-2.5 px-3 text-center bg-slate-50">Batch Status</th>
               )}
               <th
-                onClick={() => handleSort('title')}
+                onClick={() => handleSort('payeeName')}
                 className="py-2.5 px-3 cursor-pointer hover:text-slate-900 bg-slate-50"
               >
                 <div className="flex items-center space-x-1">
-                  <span>Beneficiary Name &amp; Reference</span>
+                  <span>Payee Name &amp; Reference</span>
                   <ArrowUpDown className="w-3 h-3 text-slate-400" />
                 </div>
               </th>
               <th
-                onClick={() => handleSort('bankCode')}
+                onClick={() => handleSort('sortCode')}
                 className="py-2.5 px-3 cursor-pointer hover:text-slate-900 bg-slate-50"
               >
                 <div className="flex items-center space-x-1">
@@ -542,7 +579,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                   <ArrowUpDown className="w-3 h-3 text-slate-400" />
                 </div>
               </th>
-              <th className="py-2.5 px-3 bg-slate-50">Account No</th>
+              <th className="py-2.5 px-3 bg-slate-50">Account Number</th>
               <th
                 onClick={() => handleSort('amount')}
                 className="py-2.5 px-3 text-right cursor-pointer hover:text-slate-900 bg-slate-50"
@@ -571,12 +608,14 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                 const fee = fees[tx.assignedRail];
                 const margin = tx.amount * (profitMarginPercent / 100);
                 const net = margin - fee;
-                const bankName = getBankNameFromSortCode(tx.bankCode);
+                const bankName = getBankNameFromSortCode(tx.sortCode);
                 const isO4bCommitted = tx.assignedRail === 'O4B' && tx.o4bBatchCommitted;
+                const consolidated = isConsolidated(tx);
+                const isExpanded = consolidated && expandedIds.has(tx.id);
 
                 return (
+                  <Fragment key={tx.id}>
                   <tr
-                    key={tx.id}
                     className={`transition-colors group ${
                       isSelected
                         ? 'bg-emerald-50/40'
@@ -597,7 +636,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                             type="checkbox"
                             checked={isSelected}
                             disabled
-                            aria-label={`Selection state for ${tx.title}`}
+                            aria-label={`Selection state for ${tx.payeeName}`}
                             className="w-4 h-4 text-emerald-600 rounded border-slate-300 opacity-60 cursor-not-allowed"
                             title={isSelected ? 'Selected in rail tab' : 'Unselected'}
                           />
@@ -631,7 +670,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                       ) : (
                         <input
                           type="checkbox"
-                          aria-label={`Select transaction for ${tx.title}`}
+                          aria-label={`Select transaction for ${tx.payeeName}`}
                           checked={isSelected}
                           onChange={() => onToggleSelect(tx.id)}
                           className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
@@ -658,24 +697,68 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                     )}
 
                     <td className="py-2.5 px-3 font-medium text-slate-900">
-                      <div>{tx.title}</div>
+                      <div>{tx.payeeName}</div>
                       <div className="text-[11px] text-slate-400 font-normal">
-                        Ref: {tx.lodgementRef || 'N/A'}
+                        Ref: {tx.payeeReference || 'N/A'}
                       </div>
+                      {consolidated && (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(tx.id)}
+                          aria-expanded={isExpanded}
+                          aria-controls={`fold-${tx.id}`}
+                          className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-violet-50 text-violet-800 border border-violet-300 hover:bg-violet-100 cursor-pointer"
+                          title="Identical payee, sort code, account number and reference: paid as one payment"
+                        >
+                          <ChevronRight className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                          <Merge className="w-3 h-3" />
+                          {sourceRecordCount(tx)} records consolidated
+                        </button>
+                      )}
                     </td>
                     <td className="py-2.5 px-3 font-mono text-slate-700">
-                      <div>{formatSortCode(tx.bankCode)}</div>
+                      <div>{formatSortCode(tx.sortCode)}</div>
                       <div className="text-[10px] text-slate-400 font-sans">{bankName}</div>
                     </td>
                     <td className="py-2.5 px-3 font-mono text-slate-700">
-                      {cleanAccountNoForXml(tx.accountNo)}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* 8-digit value as exported; the raw value is shown only when it can't be converted */}
+                        <span>{normaliseAccountNumber(tx.accountNumber).value || tx.accountNumber}</span>
+                        {(() => {
+                          // Show exactly what the Lloyds files will contain, or why the payment is blocked
+                          const acc = normaliseAccountNumber(tx.accountNumber);
+                          const sort = normaliseSortCode(tx.sortCode);
+                          const problem = [sort, acc].find((d) => d.status === 'invalid');
+                          if (problem) {
+                            return (
+                              <span
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-sans font-semibold bg-red-100 text-red-800 border border-red-300"
+                                title={`${problem.message}. This payment will block the Lloyds BACS/FPS export until corrected.`}
+                              >
+                                Invalid
+                              </span>
+                            );
+                          }
+                          if (acc.status === 'converted') {
+                            return (
+                              <span
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-sans font-semibold bg-amber-100 text-amber-800 border border-amber-300"
+                                title={acc.message}
+                              >
+                                from {acc.raw}
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
                     </td>
                     <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 tabular-nums">
                       {formatGBP(tx.amount)}
                     </td>
                     <td className="py-2.5 px-3 text-center">
                       <select
-                        aria-label={`Assigned rail for ${tx.title}`}
+                        aria-label={`Assigned rail for ${tx.payeeName}`}
                         value={tx.assignedRail}
                         onChange={(e) => onOverrideRail(tx.id, e.target.value as PaymentRail)}
                         className={`text-xs font-semibold py-1 px-2 rounded border transition cursor-pointer ${
@@ -714,6 +797,40 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                       {formatGBP(net)}
                     </td>
                   </tr>
+                  {isExpanded && (
+                    // Z-fold review panel: each source record is a fold, alternately offset, adding up to the payment
+                    <tr id={`fold-${tx.id}`} className="bg-violet-50/40">
+                      <td colSpan={activeTab === 'O4B' ? 10 : 9} className="px-3 pb-3 pt-0">
+                        <div className="ml-10 border-l-2 border-violet-300 pl-3 pt-2 space-y-1">
+                          <div className="text-[11px] font-semibold text-violet-900">
+                            {sourceRecordCount(tx)} identical records consolidated into one payment
+                          </div>
+                          {tx.sourceRecords.map((r, i) => (
+                            <div
+                              key={r.rowNumber}
+                              className={`flex flex-wrap items-center gap-x-4 gap-y-0.5 px-2.5 py-1.5 rounded border border-violet-200 bg-white text-[11px] font-mono text-slate-700 shadow-2xs max-w-3xl ${
+                                i % 2 === 1 ? 'ml-6 -skew-x-3' : 'skew-x-3'
+                              }`}
+                            >
+                              <span className="text-violet-700 font-semibold">CSV row {r.rowNumber}</span>
+                              <span className="font-sans">{r.payeeName}</span>
+                              <span>{formatSortCode(r.sortCode)}</span>
+                              <span>{r.accountNumber}</span>
+                              <span className="font-sans">Ref: {r.payeeReference || 'N/A'}</span>
+                              <span className="ml-auto font-bold text-slate-900 tabular-nums">{formatGBP(r.amount)}</span>
+                            </div>
+                          ))}
+                          <div className="flex items-center justify-between max-w-3xl px-2.5 pt-1 text-[11px] font-mono border-t border-violet-200">
+                            <span className="text-violet-900 font-sans font-semibold">
+                              Exported as 1 payment ({sourceRecordCount(tx) - 1} fewer, saving {formatGBP(fee * (sourceRecordCount(tx) - 1))} in fees)
+                            </span>
+                            <span className="font-bold text-slate-900 tabular-nums">= {formatGBP(tx.amount)}</span>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })
             )}
@@ -727,10 +844,18 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
           <span className="font-semibold text-slate-800 font-sans">
             Listing all {sortedTransactions.length} payments
           </span>
+          {currentTabMetric.stats.recordsMerged > 0 && (
+            <>
+              <span className="text-slate-300">·</span>
+              <span className="text-violet-800" title="Identical payee, sort code, account number and reference">
+                {currentTabMetric.stats.records} CSV records → {currentTabMetric.count} payments ({currentTabMetric.stats.recordsMerged} merged)
+              </span>
+            </>
+          )}
           <span className="text-slate-300">·</span>
           <span>Total: <strong className="text-slate-900">{formatGBP(currentTabMetric.amount)}</strong></span>
           <span className="text-slate-300">·</span>
-          <span>Selected: <strong className="text-emerald-700">{formatGBP(currentTabMetric.selAmount)}</strong> ({currentTabMetric.selCount})</span>
+          <span>Selected: <strong className="text-emerald-700">{formatGBP(currentTabMetric.selAmount)}</strong> ({currentTabMetric.selCount} payments{currentTabMetric.selStats.recordsMerged > 0 ? `, ${currentTabMetric.selStats.records} records` : ''})</span>
           {activeTab === 'O4B' && (
             <>
               <span className="text-slate-300">·</span>
