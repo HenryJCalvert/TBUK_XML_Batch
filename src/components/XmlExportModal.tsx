@@ -180,7 +180,7 @@ export const XmlExportModal: React.FC<XmlExportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-[min(96vw,80rem)] max-h-[94dvh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-4 px-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div className="flex items-center space-x-3">
@@ -379,7 +379,7 @@ export const XmlExportModal: React.FC<XmlExportModalProps> = ({
 
         {/* Validation results: errors block the download, warnings show what will be changed */}
         {activeBatch.issues.length > 0 && (
-          <div className="px-6 py-3 border-b border-slate-200 bg-white max-h-48 overflow-y-auto text-xs space-y-1">
+          <div className="px-6 py-3 border-b border-slate-200 bg-white max-h-[25dvh] overflow-y-auto text-xs space-y-1">
             {activeErrors.map((issue, i) => (
               <div key={`e-${i}`} className="flex items-start gap-1.5 text-red-700">
                 <XCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
@@ -401,7 +401,7 @@ export const XmlExportModal: React.FC<XmlExportModalProps> = ({
 
         {/* Code Window: Placed below the batch summary, collapsible */}
         {isCodeOpen && activeContent ? (
-          <div className="p-6 flex-1 overflow-y-auto bg-slate-900 text-slate-200 max-h-72">
+          <div className="p-6 flex-1 min-h-0 overflow-y-auto bg-slate-900 text-slate-200">
             <pre className="text-xs font-mono whitespace-pre overflow-x-auto leading-relaxed text-slate-300 selection:bg-emerald-500 selection:text-black">
               {activeContent}
             </pre>
