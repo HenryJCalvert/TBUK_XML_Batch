@@ -20,6 +20,8 @@ interface SettingsModalProps {
   onSaveFeeSchedule: (fees: FeeSchedule) => void;
   railTimeConfig?: RailTimeConfig;
   onSaveRailTimeConfig?: (config: RailTimeConfig) => void;
+  consolidateIdentical?: boolean;
+  onSaveConsolidateIdentical?: (value: boolean) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -33,10 +35,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaveFeeSchedule,
   railTimeConfig,
   onSaveRailTimeConfig,
+  consolidateIdentical = true,
+  onSaveConsolidateIdentical,
 }) => {
   const [form, setForm] = useState<DebtorConfig>({ ...debtor });
   const [margin, setMargin] = useState<number>(profitMarginPercent);
   const [fees, setFees] = useState<FeeSchedule>({ ...feeSchedule });
+  const [consolidate, setConsolidate] = useState<boolean>(consolidateIdentical);
   const [times, setTimes] = useState<RailTimeConfig>({
     ...(railTimeConfig || DEFAULT_RAIL_TIME_CONFIG),
   });
@@ -48,6 +53,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setMargin(profitMarginPercent);
     setFees({ ...feeSchedule });
     setTimes({ ...(railTimeConfig || DEFAULT_RAIL_TIME_CONFIG) });
+    setConsolidate(consolidateIdentical);
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!isOpen) return null;
@@ -60,6 +66,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onSaveProfitMargin(margin);
     onSaveFeeSchedule(fees);
     onSaveRailTimeConfig?.(times);
+    if (consolidate !== consolidateIdentical) onSaveConsolidateIdentical?.(consolidate);
     onClose();
   };
 
@@ -97,6 +104,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Consolidation of identical payment records */}
+          <div className="flex items-start justify-between gap-4 p-3 rounded-lg border border-violet-200 bg-violet-50/50">
+            <div>
+              <label htmlFor="consolidate-identical" className="block text-xs font-semibold text-slate-800 cursor-pointer">
+                Consolidate identical payments
+              </label>
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                Records with the same payee name, sort code, account number and payment reference are paid as one
+                payment for the combined amount. Changing this re-imports the CSV and clears ticks and O4B batches.
+              </p>
+            </div>
+            <button
+              id="consolidate-identical"
+              type="button"
+              role="switch"
+              aria-checked={consolidate}
+              onClick={() => setConsolidate(!consolidate)}
+              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition cursor-pointer ${
+                consolidate ? 'bg-violet-600' : 'bg-slate-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                  consolidate ? 'translate-x-4' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+
           {/* Debtor Details */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -551,7 +587,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   type="number"
                   min={1}
                   max={300}
-                  step={5}
+                  step={1}
                   value={times.o4bSecondsPerPayment}
                   onChange={(e) =>
                     setTimes({

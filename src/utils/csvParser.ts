@@ -74,7 +74,13 @@ export function parseGbpAmount(value: string): number {
   return Math.round(parseFloat(cleaned) * 100) / 100;
 }
 
-export function parsePaymentCsv(csvText: string, limits: ThresholdLimits): PaymentTransaction[] {
+export interface ParseOptions {
+  /** Merge identical records (payee, sort code, account number, reference) into one payment. Default true. */
+  consolidate?: boolean;
+}
+
+export function parsePaymentCsv(csvText: string, limits: ThresholdLimits, options: ParseOptions = {}): PaymentTransaction[] {
+  const consolidate = options.consolidate ?? true;
   const lines = csvText.replace(/^\uFEFF/, '').split(/\r?\n/).filter((l) => l.trim().length > 0);
   if (lines.length === 0) return [];
 
@@ -108,14 +114,20 @@ export function parsePaymentCsv(csvText: string, limits: ThresholdLimits): Payme
   }
 
   // Identical records (payee, sort code, account number, reference) become one payment;
-  // the rail is chosen from the combined amount
-  const transactions = consolidateRecords(records, (group, amount) => ({
+  // the rail is chosen from the combined amount. With consolidation off, every record is its own payment.
+  const groupRecords = consolidate
+    ? consolidateRecords
+    : (recs: SourcePaymentRecord[], make: (g: SourcePaymentRecord[], amount: number) => PaymentTransaction) =>
+        recs.map((r) => make([r], r.amount));
+  const transactions = groupRecords(records, (group, amount) => ({
     id: `tx-${group[0].rowNumber}-${Math.random().toString(36).substring(2, 7)}`,
     sortCode: group[0].sortCode,
     accountNumber: group[0].accountNumber,
     amount,
-    payeeName: group[0].payeeName.replace(/\s+/g, ' ').trim(),
-    payeeReference: group[0].payeeReference.replace(/\s+/g, ' ').trim(),
+    // Kept as uploaded so conformance checks can highlight spacing/character problems;
+    // the Lloyds export cleans them (and reports what it changed)
+    payeeName: group[0].payeeName,
+    payeeReference: group[0].payeeReference,
     sourceRecords: group,
     assignedRail: determineRailByLimits(amount, limits),
     isManualOverride: false,
