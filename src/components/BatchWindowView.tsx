@@ -155,17 +155,28 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
   }, [transactions]);
   const LOCKED_REASON = 'Part of this group is committed to an O4B batch; reset O4B batches to change it';
 
-  // Payment reference copy (O4B payments are keyed manually)
-  const [copiedRefId, setCopiedRefId] = useState<string | null>(null);
-  const copyReference = async (id: string, reference: string) => {
+  // Copy to clipboard for O4B payments, which are keyed manually (account number, amount, reference)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const copyValue = async (key: string, value: string) => {
     try {
-      await navigator.clipboard.writeText(reference);
-      setCopiedRefId(id);
-      setTimeout(() => setCopiedRefId((cur) => (cur === id ? null : cur)), 1500);
+      await navigator.clipboard.writeText(value);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey((cur) => (cur === key ? null : cur)), 1500);
     } catch {
-      setCopiedRefId(null);
+      setCopiedKey(null);
     }
   };
+  const CopyButton: React.FC<{ copyKey: string; value: string; label: string }> = ({ copyKey, value, label }) => (
+    <button
+      type="button"
+      onClick={() => copyValue(copyKey, value)}
+      className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer shrink-0"
+      title={`Copy ${label}: ${value}`}
+      aria-label={`Copy ${label}`}
+    >
+      {copiedKey === copyKey ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+    </button>
+  );
 
   // Conformance check per payment (and each record it was consolidated from)
   const conformanceById = useMemo(() => {
@@ -316,7 +327,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
             </div>
 
             {/* Rows underneath: Total records count on left, Selected records count on right */}
-            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100 mt-1 font-mono">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 text-[11px] text-slate-500 pt-1.5 border-t border-slate-100 mt-1 font-mono">
               <span title={`${railMetrics.ALL.stats.records} CSV records paid as ${railMetrics.ALL.count} payments`}>
                 {railMetrics.ALL.count} payments
                 {railMetrics.ALL.stats.recordsMerged > 0 && (
@@ -358,7 +369,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
             </div>
 
             {/* Rows underneath: Total records count on left, Selected records count on right */}
-            <div className="flex items-center justify-between text-[11px] text-emerald-800/80 pt-1.5 border-t border-emerald-100 mt-1 font-mono">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 text-[11px] text-emerald-800/80 pt-1.5 border-t border-emerald-100 mt-1 font-mono">
               <span title={`${railMetrics.O4B.stats.records} CSV records paid as ${railMetrics.O4B.count} payments`}>
                 {railMetrics.O4B.count} payments
                 {railMetrics.O4B.stats.recordsMerged > 0 && (
@@ -400,7 +411,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
             </div>
 
             {/* Rows underneath: Total records count on left, Selected records count on right */}
-            <div className="flex items-center justify-between text-[11px] text-blue-800/80 pt-1.5 border-t border-blue-100 mt-1 font-mono">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 text-[11px] text-blue-800/80 pt-1.5 border-t border-blue-100 mt-1 font-mono">
               <span title={`${railMetrics.BACS.stats.records} CSV records paid as ${railMetrics.BACS.count} payments`}>
                 {railMetrics.BACS.count} payments
                 {railMetrics.BACS.stats.recordsMerged > 0 && (
@@ -442,7 +453,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
             </div>
 
             {/* Rows underneath: Total records count on left, Selected records count on right */}
-            <div className="flex items-center justify-between text-[11px] text-red-800/80 pt-1.5 border-t border-red-100 mt-1 font-mono">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 text-[11px] text-red-800/80 pt-1.5 border-t border-red-100 mt-1 font-mono">
               <span title={`${railMetrics.FasterPay.stats.records} CSV records paid as ${railMetrics.FasterPay.count} payments`}>
                 {railMetrics.FasterPay.count} payments
                 {railMetrics.FasterPay.stats.recordsMerged > 0 && (
@@ -638,7 +649,8 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
       </div>
 
       {/* Transaction Table - Lists all relevant payments for that selection (no 20 limit) */}
-      <div className="overflow-x-auto max-h-[720px] overflow-y-auto">
+      {/* Table height follows the browser window (header, summary and controls stay reachable) */}
+      <div className="overflow-x-auto max-h-[calc(100dvh-9rem)] min-h-[16rem] overflow-y-auto">
         <table className="w-full text-left border-collapse">
           <thead className="sticky top-0 z-10 bg-slate-50 shadow-2xs">
             <tr className="border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
@@ -693,15 +705,19 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
               </th>
               {activeTab === 'O4B' && <th className="py-2.5 px-3 bg-slate-50">Payment Reference</th>}
               <th className="py-2.5 px-3 text-center bg-slate-50">Rail</th>
-              <th className="py-2.5 px-3 text-right bg-slate-50">Fee</th>
-              <th className="py-2.5 px-3 text-right bg-slate-50">Margin ({profitMarginPercent}%)</th>
-              <th className="py-2.5 px-3 text-right bg-slate-50">Net Profit</th>
+              {activeTab !== 'O4B' && (
+                <>
+                  <th className="py-2.5 px-3 text-right bg-slate-50">Fee</th>
+                  <th className="py-2.5 px-3 text-right bg-slate-50">Margin ({profitMarginPercent}%)</th>
+                  <th className="py-2.5 px-3 text-right bg-slate-50">Net Profit</th>
+                </>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs">
             {sortedTransactions.length === 0 ? (
               <tr>
-                <td colSpan={activeTab === 'O4B' ? 11 : 9} className="py-8 text-center text-slate-400">
+                <td colSpan={activeTab === 'O4B' ? 8 : 9} className="py-8 text-center text-slate-400">
                   No transactions found matching your criteria.
                 </td>
               </tr>
@@ -862,10 +878,17 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                     </td>
                     <td className="py-2.5 px-3 font-mono text-slate-700">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {/* 8-digit value as exported; the raw value is shown only when it can't be converted */}
-                        <span className={failClass(conformance, 'accountNumber')} title={conformance.accountNumber}>
+                        {/* 8-digit value as exported (zero-padded imports are converted silently); the raw value is shown only when it can't be converted */}
+                        <span className={`select-all ${failClass(conformance, 'accountNumber')}`} title={conformance.accountNumber}>
                           {normaliseAccountNumber(tx.accountNumber).value || tx.accountNumber}
                         </span>
+                        {activeTab === 'O4B' && normaliseAccountNumber(tx.accountNumber).value && (
+                          <CopyButton
+                            copyKey={`${tx.id}:acc`}
+                            value={normaliseAccountNumber(tx.accountNumber).value}
+                            label={`account number for ${tx.payeeName}`}
+                          />
+                        )}
                         {(() => {
                           // Show exactly what the Lloyds files will contain, or why the payment is blocked
                           const acc = normaliseAccountNumber(tx.accountNumber);
@@ -881,16 +904,6 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                               </span>
                             );
                           }
-                          if (acc.status === 'converted') {
-                            return (
-                              <span
-                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-sans font-semibold bg-amber-100 text-amber-800 border border-amber-300"
-                                title={acc.message}
-                              >
-                                from {acc.raw}
-                              </span>
-                            );
-                          }
                           return null;
                         })()}
                       </div>
@@ -899,7 +912,15 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                       className={`py-2.5 px-3 text-right font-mono font-bold tabular-nums ${failClass(conformance, 'amount', 'text-slate-900')}`}
                       title={conformance.amount}
                     >
-                      {formatGBP(tx.amount)}
+                      {activeTab === 'O4B' ? (
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span className="select-all">{formatGBP(tx.amount)}</span>
+                          {/* Copies the plain amount (e.g. 606.00) for pasting into the banking form */}
+                          <CopyButton copyKey={`${tx.id}:amt`} value={tx.amount.toFixed(2)} label={`amount for ${tx.payeeName}`} />
+                        </div>
+                      ) : (
+                        formatGBP(tx.amount)
+                      )}
                     </td>
                     {activeTab === 'O4B' && (
                       <td className="py-2.5 px-3 font-mono" title={conformance.payeeReference}>
@@ -908,19 +929,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                             {tx.payeeReference || '—'}
                           </span>
                           {tx.payeeReference && (
-                            <button
-                              type="button"
-                              onClick={() => copyReference(tx.id, tx.payeeReference)}
-                              className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
-                              title="Copy payment reference"
-                              aria-label={`Copy payment reference for ${tx.payeeName}`}
-                            >
-                              {copiedRefId === tx.id ? (
-                                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              ) : (
-                                <Copy className="w-3.5 h-3.5" />
-                              )}
-                            </button>
+                            <CopyButton copyKey={`${tx.id}:ref`} value={tx.payeeReference} label={`payment reference for ${tx.payeeName}`} />
                           )}
                         </div>
                       </td>
@@ -948,28 +957,32 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                         </div>
                       )}
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono tabular-nums">
-                      {fee === 0 ? (
-                        <span className="text-emerald-600 font-semibold">£0.00</span>
-                      ) : (
-                        <span className="text-slate-600">£{fee.toFixed(2)}</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono tabular-nums text-slate-600">
-                      {formatGBP(margin)}
-                    </td>
-                    <td
-                      className={`py-2.5 px-3 text-right font-mono font-semibold tabular-nums ${
-                        net >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                      }`}
-                    >
-                      {formatGBP(net)}
-                    </td>
+                    {activeTab !== 'O4B' && (
+                      <>
+                        <td className="py-2.5 px-3 text-right font-mono tabular-nums">
+                          {fee === 0 ? (
+                            <span className="text-emerald-600 font-semibold">£0.00</span>
+                          ) : (
+                            <span className="text-slate-600">£{fee.toFixed(2)}</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono tabular-nums text-slate-600">
+                          {formatGBP(margin)}
+                        </td>
+                        <td
+                          className={`py-2.5 px-3 text-right font-mono font-semibold tabular-nums ${
+                            net >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                          }`}
+                        >
+                          {formatGBP(net)}
+                        </td>
+                      </>
+                    )}
                   </tr>
                   {isExpanded && (
                     // Z-fold review panel: each source record is a fold, alternately offset, adding up to the payment
                     <tr id={`fold-${tx.id}`} className="bg-violet-50/40">
-                      <td colSpan={activeTab === 'O4B' ? 11 : 9} className="px-3 pb-3 pt-0">
+                      <td colSpan={activeTab === 'O4B' ? 8 : 9} className="px-3 pb-3 pt-0">
                         <div className="ml-10 border-l-2 border-violet-300 pl-3 pt-2 space-y-1">
                           <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold text-violet-900">
                             <span>{sourceRecordCount(tx)} identical records consolidated into one payment</span>
