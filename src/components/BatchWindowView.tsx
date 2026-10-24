@@ -203,7 +203,12 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
 
       const failing = allInRail.filter(failsConformance).length;
 
-      return { count, amount, selCount, selAmount, stats, selStats, failing };
+      // O4B payments already committed to a batch (they are no longer ticked once committed)
+      const committedInRail = allInRail.filter((t) => t.assignedRail === 'O4B' && t.o4bBatchCommitted);
+      const commCount = committedInRail.length;
+      const commAmount = committedInRail.reduce((s, t) => s + t.amount, 0);
+
+      return { count, amount, selCount, selAmount, commCount, commAmount, stats, selStats, failing };
     };
 
     return {
@@ -233,6 +238,33 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
   }, [o4bTransactions, selectedTxIds]);
 
   const o4bToGoCount = o4bToGoTxs.length;
+
+  // Committed O4B batches, totalled from the payments in them (batch number order)
+  const committedBatchRows = useMemo(() => {
+    const byBatch = new Map<number, PaymentTransaction[]>();
+    o4bTransactions
+      .filter((t) => t.o4bBatchCommitted && t.o4bBatchNumber)
+      .forEach((t) => {
+        const list = byBatch.get(t.o4bBatchNumber!) || [];
+        list.push(t);
+        byBatch.set(t.o4bBatchNumber!, list);
+      });
+    return Array.from(byBatch.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([batchNumber, txs]) => ({
+        batchNumber,
+        txs,
+        count: txs.length,
+        amount: txs.reduce((s, t) => s + t.amount, 0),
+        committedAt: committedO4bBatches.find((b) => b.batchNumber === batchNumber)?.committedAt,
+      }));
+  }, [o4bTransactions, committedO4bBatches]);
+
+  const downloadO4bBatchCsv = (txs: PaymentTransaction[], batchNumber: number) => {
+    const dateStr = (debtor?.executionDate || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
+    const csv = generateO4bBatchCsv(txs, debtor || DEFAULT_DEBTOR_CONFIG, batchNumber);
+    downloadFile(`O4B_Batch_${batchNumber}_${dateStr}.csv`, csv, 'text/csv');
+  };
   const o4bToGoAmount = o4bToGoTxs.reduce((s, t) => s + t.amount, 0);
 
   // Filtered transactions for current tab
@@ -321,8 +353,11 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
             {/* Same Font Size: Left (Total) and Right (Selected) */}
             <div className="flex items-center justify-between font-mono text-sm font-bold pt-0.5">
               <span className="text-slate-900">{formatGBP(railMetrics.ALL.amount)}</span>
-              <span className={railMetrics.ALL.selCount > 0 ? 'text-emerald-700' : 'text-slate-400'}>
-                {formatGBP(railMetrics.ALL.selAmount)}
+              <span
+                className={railMetrics.ALL.selCount + railMetrics.ALL.commCount > 0 ? 'text-emerald-700' : 'text-slate-400'}
+                title="Selected + committed"
+              >
+                {formatGBP(railMetrics.ALL.selAmount + railMetrics.ALL.commAmount)}
               </span>
             </div>
 
@@ -340,6 +375,11 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
               <span className={railMetrics.ALL.selCount > 0 ? 'text-emerald-700 font-semibold' : 'text-slate-400'}>
                 {railMetrics.ALL.selCount} selected
               </span>
+              {railMetrics.ALL.commCount > 0 && (
+                <span className="basis-full text-emerald-800 font-semibold" title="Committed to O4B batches">
+                  ✓ {railMetrics.ALL.commCount} committed · {formatGBP(railMetrics.ALL.commAmount)}
+                </span>
+              )}
             </div>
           </button>
 
@@ -363,8 +403,11 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
             {/* Same Font Size: Left (Total) and Right (Selected) */}
             <div className="flex items-center justify-between font-mono text-sm font-bold pt-0.5">
               <span className="text-emerald-950">{formatGBP(railMetrics.O4B.amount)}</span>
-              <span className={railMetrics.O4B.selCount > 0 ? 'text-emerald-700' : 'text-slate-400'}>
-                {formatGBP(railMetrics.O4B.selAmount)}
+              <span
+                className={railMetrics.O4B.selCount + railMetrics.O4B.commCount > 0 ? 'text-emerald-700' : 'text-slate-400'}
+                title="Selected + committed"
+              >
+                {formatGBP(railMetrics.O4B.selAmount + railMetrics.O4B.commAmount)}
               </span>
             </div>
 
@@ -382,6 +425,11 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
               <span className={railMetrics.O4B.selCount > 0 ? 'text-emerald-900 font-bold' : 'text-slate-400'}>
                 {railMetrics.O4B.selCount} selected
               </span>
+              {railMetrics.O4B.commCount > 0 && (
+                <span className="basis-full text-emerald-800 font-semibold" title="Committed to O4B batches">
+                  ✓ {railMetrics.O4B.commCount} committed · {formatGBP(railMetrics.O4B.commAmount)}
+                </span>
+              )}
             </div>
           </button>
 
@@ -405,8 +453,11 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
             {/* Same Font Size: Left (Total) and Right (Selected) */}
             <div className="flex items-center justify-between font-mono text-sm font-bold pt-0.5">
               <span className="text-blue-950">{formatGBP(railMetrics.BACS.amount)}</span>
-              <span className={railMetrics.BACS.selCount > 0 ? 'text-blue-700' : 'text-slate-400'}>
-                {formatGBP(railMetrics.BACS.selAmount)}
+              <span
+                className={railMetrics.BACS.selCount + railMetrics.BACS.commCount > 0 ? 'text-blue-700' : 'text-slate-400'}
+                title="Selected + committed"
+              >
+                {formatGBP(railMetrics.BACS.selAmount + railMetrics.BACS.commAmount)}
               </span>
             </div>
 
@@ -424,6 +475,11 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
               <span className={railMetrics.BACS.selCount > 0 ? 'text-blue-900 font-bold' : 'text-slate-400'}>
                 {railMetrics.BACS.selCount} selected
               </span>
+              {railMetrics.BACS.commCount > 0 && (
+                <span className="basis-full text-emerald-800 font-semibold" title="Committed to O4B batches">
+                  ✓ {railMetrics.BACS.commCount} committed · {formatGBP(railMetrics.BACS.commAmount)}
+                </span>
+              )}
             </div>
           </button>
 
@@ -447,8 +503,11 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
             {/* Same Font Size: Left (Total) and Right (Selected) */}
             <div className="flex items-center justify-between font-mono text-sm font-bold pt-0.5">
               <span className="text-red-950">{formatGBP(railMetrics.FasterPay.amount)}</span>
-              <span className={railMetrics.FasterPay.selCount > 0 ? 'text-red-700' : 'text-slate-400'}>
-                {formatGBP(railMetrics.FasterPay.selAmount)}
+              <span
+                className={railMetrics.FasterPay.selCount + railMetrics.FasterPay.commCount > 0 ? 'text-red-700' : 'text-slate-400'}
+                title="Selected + committed"
+              >
+                {formatGBP(railMetrics.FasterPay.selAmount + railMetrics.FasterPay.commAmount)}
               </span>
             </div>
 
@@ -466,10 +525,43 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
               <span className={railMetrics.FasterPay.selCount > 0 ? 'text-red-900 font-bold' : 'text-slate-400'}>
                 {railMetrics.FasterPay.selCount} selected
               </span>
+              {railMetrics.FasterPay.commCount > 0 && (
+                <span className="basis-full text-emerald-800 font-semibold" title="Committed to O4B batches">
+                  ✓ {railMetrics.FasterPay.commCount} committed · {formatGBP(railMetrics.FasterPay.commAmount)}
+                </span>
+              )}
             </div>
           </button>
         </div>
       </div>
+
+      {/* Committed O4B batches, listed above the current batch */}
+      {activeTab === 'O4B' && committedBatchRows.length > 0 && (
+        <div className="border-b border-emerald-200 bg-emerald-50/40 divide-y divide-emerald-100">
+          {committedBatchRows.map((b) => (
+            <div key={b.batchNumber} className="px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold">
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                Batch #{b.batchNumber} committed
+              </span>
+              {b.committedAt && <span className="text-slate-500">at {b.committedAt}</span>}
+              <span className="font-mono text-slate-700">
+                <strong className="text-slate-900">{b.count}</strong> payment{b.count === 1 ? '' : 's'} ·{' '}
+                <strong className="text-emerald-800">{formatGBP(b.amount)}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => downloadO4bBatchCsv(b.txs, b.batchNumber)}
+                className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded border border-emerald-300 text-emerald-800 hover:bg-emerald-100 font-semibold cursor-pointer"
+                title={`Download the O4B CSV for committed Batch #${b.batchNumber} again`}
+              >
+                <Download className="w-3.5 h-3.5" />
+                Batch #{b.batchNumber} CSV
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* O4B Special Batch Numbering & Commit Toolbar (when O4B tab is active) */}
       {activeTab === 'O4B' && (
@@ -487,32 +579,12 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
               </strong>
             </div>
 
-            {/* Already committed batches list */}
-            {committedO4bBatches.length > 0 && (
-              <div className="hidden lg:flex items-center space-x-1 pl-2 border-l border-emerald-200 text-xs">
-                <span className="text-slate-500 text-[11px]">Committed:</span>
-                {committedO4bBatches.map((b) => (
-                  <span
-                    key={b.batchNumber}
-                    className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono text-[11px]"
-                    title={`Committed at ${b.committedAt || ''}: ${b.count} txs, ${formatGBP(b.totalAmount)}`}
-                  >
-                    <Check className="w-3 h-3 text-emerald-600 mr-1" />
-                    B#{b.batchNumber} ({b.count})
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Commit Batch Checkbox & Action */}
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => {
-                const dateStr = (debtor?.executionDate || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
-                const csv = generateO4bBatchCsv(o4bStagedTxs, debtor || DEFAULT_DEBTOR_CONFIG, currentO4bBatchNumber);
-                downloadFile(`O4B_Batch_${currentO4bBatchNumber}_${dateStr}.csv`, csv, 'text/csv');
-              }}
+              onClick={() => downloadO4bBatchCsv(o4bStagedTxs, currentO4bBatchNumber)}
               disabled={o4bStagedCount === 0}
               className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg shadow-xs transition ${
                 o4bStagedCount > 0
@@ -586,13 +658,21 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
 
           <div className="text-xs text-slate-600 font-mono flex flex-wrap items-center gap-1.5">
             <span>Tab: <strong className="text-slate-900">{formatGBP(currentTabMetric.amount)}</strong></span>
+            {(activeTab === 'O4B' || currentTabMetric.commCount > 0) && (
+              <>
+                <span className="text-slate-300">|</span>
+                <span title={`${currentTabMetric.commCount} payments committed to O4B batches`}>
+                  Committed: <strong className="text-emerald-800">{formatGBP(currentTabMetric.commAmount)}</strong>
+                </span>
+              </>
+            )}
             <span className="text-slate-300">|</span>
             <span>Selected: <strong className="text-emerald-700">{formatGBP(currentTabMetric.selAmount)}</strong></span>
             {activeTab === 'O4B' && (
               <>
                 <span className="text-slate-300">|</span>
-                <span className="text-amber-800 font-medium">
-                  Payments to Go : <strong className="text-amber-900 font-bold">{formatGBP(o4bToGoAmount)}</strong> ({o4bToGoCount} txs)
+                <span className="text-amber-800 font-medium" title="Payments to go: O4B payments not yet committed or selected">
+                  P2Go: <strong className="text-amber-900 font-bold">{formatGBP(o4bToGoAmount)}</strong> ({o4bToGoCount} txs)
                 </span>
               </>
             )}
@@ -877,7 +957,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                       <div className="text-[10px] text-slate-400 font-sans">{bankName}</div>
                     </td>
                     <td className="py-2.5 px-3 font-mono text-slate-700">
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="flex items-center gap-1.5 whitespace-nowrap">
                         {/* 8-digit value as exported (zero-padded imports are converted silently); the raw value is shown only when it can't be converted */}
                         <span className={`select-all ${failClass(conformance, 'accountNumber')}`} title={conformance.accountNumber}>
                           {normaliseAccountNumber(tx.accountNumber).value || tx.accountNumber}
@@ -1067,12 +1147,18 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
           <span className="text-slate-300">·</span>
           <span>Total: <strong className="text-slate-900">{formatGBP(currentTabMetric.amount)}</strong></span>
           <span className="text-slate-300">·</span>
+          {currentTabMetric.commCount > 0 && (
+            <>
+              <span>Committed: <strong className="text-emerald-800">{formatGBP(currentTabMetric.commAmount)}</strong> ({currentTabMetric.commCount})</span>
+              <span className="text-slate-300">·</span>
+            </>
+          )}
           <span>Selected: <strong className="text-emerald-700">{formatGBP(currentTabMetric.selAmount)}</strong> ({currentTabMetric.selCount} payments{currentTabMetric.selStats.recordsMerged > 0 ? `, ${currentTabMetric.selStats.records} records` : ''})</span>
           {activeTab === 'O4B' && (
             <>
               <span className="text-slate-300">·</span>
               <span className="text-amber-800 font-medium">
-                Payments to Go : <strong className="text-amber-950 font-bold">{formatGBP(o4bToGoAmount)}</strong> ({o4bToGoCount} remaining)
+                P2Go: <strong className="text-amber-950 font-bold">{formatGBP(o4bToGoAmount)}</strong> ({o4bToGoCount} remaining)
               </span>
             </>
           )}
