@@ -29,6 +29,10 @@ export interface PaymentTransaction {
   // CSV records paid by this payment. More than one when identical records (same payee name,
   // sort code, account number and reference) were consolidated; `amount` is their total.
   sourceRecords: SourcePaymentRecord[];
+  // Set on every payment that belongs to a group of identical records
+  consolidationKey?: string;
+  // True when the operator chose to pay that group as separate payments (one per record)
+  paidSeparately?: boolean;
   assignedRail: PaymentRail;
   isManualOverride?: boolean;
   o4bBatchNumber?: number; // e.g. 1, 2, 3...
