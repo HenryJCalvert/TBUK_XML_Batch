@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03">
+    <CstmrCdtTrfInitn>
+        <GrpHdr>                                               
+            <MsgId>COMMERCIAL BANKING ONLINE</MsgId>           
+            <CreDtTm>2019-07-31T00:00:00.000Z</CreDtTm>         
+            <NbOfTxs>1</NbOfTxs>                               
+            <InitgPty/>
+        </GrpHdr>
+		
+        <PmtInf>                                               
+            <PmtInfId>12345</PmtInfId>                          
+            <PmtMtd>TRA</PmtMtd>                                
+            <PmtTpInf>                     
+				<LclInstrm>
+                    <Prtry>FPS</Prtry>                         
+                </LclInstrm>
+				<CtgyPurp>
+					<Prtry>DR ACCOUNT REF FPS</Prtry>          
+				</CtgyPurp>
+             </PmtTpInf>	
+            <ReqdExctnDt>2020-06-18</ReqdExctnDt>              
+            <Dbtr/>
+            <DbtrAcct>
+                <Id>
+                    <Othr>
+                        <Id>123456-12345678</Id>               
+                    </Othr>
+                </Id>
+            </DbtrAcct>
+            <DbtrAgt>
+                <FinInstnId/>                        
+            </DbtrAgt>
+            <CdtTrfTxInf>
+			<PmtId>
+				<EndToEndId>END TO END REFERENCE FPS</EndToEndId>    
+            </PmtId>
+                <Amt>
+                    <InstdAmt Ccy="GBP">1.50</InstdAmt>  
+                </Amt>
+                <CdtrAgt>
+                    <FinInstnId>
+                        <ClrSysMmbId>
+                            <MmbId>123456</MmbId>              
+                        </ClrSysMmbId>
+                    </FinInstnId>
+                </CdtrAgt>
+                <Cdtr>
+                    <Nm>John Smith FPS</Nm>                    
+                </Cdtr>
+                <CdtrAcct>
+                    <Id>
+                        <Othr>
+                            <Id>87654321</Id>                  
+                        </Othr>
+                    </Id>
+                </CdtrAcct>
+				<RmtInf>
+					<Ustrd>ADDITIONAL REFERENCE FPS</Ustrd>    
+					<Strd>
+						<CdtrRefInf>
+							<Tp>
+								<CdOrPrtry>
+									<Prtry>BENE REF FPS</Prtry> 
+								</CdOrPrtry>
+							</Tp>
+						</CdtrRefInf>
+					</Strd>
+				</RmtInf>
+            </CdtTrfTxInf>
+        </PmtInf>		
+    </CstmrCdtTrfInitn>
+</Document>

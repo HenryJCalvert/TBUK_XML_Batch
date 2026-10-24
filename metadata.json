@@ -1,0 +1,6 @@
+{
+  "name": "Fund Transfer & Payment Batch Optimizer",
+  "description": "Multi-tier payment batching engine that splits transactions into O4B, BACS, and Faster Payments windows, optimizes processing fees with margin constraints, and exports Lloyds ISO 20022 XML files.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03">
+    <CstmrCdtTrfInitn>
+        <GrpHdr>
+            <MsgId>COMMERCIAL BANKING ONLINE</MsgId>
+            <CreDtTm>2016-01-01T00:00:00.000Z</CreDtTm>
+            <NbOfTxs>1</NbOfTxs>
+            <InitgPty/>
+        </GrpHdr>
+        <PmtInf>
+            <PmtInfId>1</PmtInfId>
+            <PmtMtd>TRA</PmtMtd>
+            <PmtTpInf>
+			<LclInstrm>
+                    <Prtry>UKBACS</Prtry>
+                </LclInstrm>
+				<CtgyPurp>
+					<Prtry>Debt Acc Ref</Prtry>
+				</CtgyPurp>
+             </PmtTpInf>	
+            <ReqdExctnDt>2016-01-01</ReqdExctnDt>
+			<Dbtr/>
+            <DbtrAcct>
+                <Id>
+                    <Othr>
+                        <Id>123456-12345678</Id>
+                    </Othr>
+                </Id>
+            </DbtrAcct>
+            <DbtrAgt>
+                <FinInstnId/>
+            </DbtrAgt>
+            <CdtTrfTxInf>
+			<PmtId>
+				<EndToEndId>Reference</EndToEndId>
+			</PmtId>
+                <Amt>
+                    <InstdAmt Ccy="GBP">1.00</InstdAmt>
+                </Amt>
+                <CdtrAgt>
+					<FinInstnId>
+						<ClrSysMmbId>
+							<MmbId>123456</MmbId>
+						</ClrSysMmbId>
+					</FinInstnId>	
+				</CdtrAgt>
+                <Cdtr>
+                    <Nm>Beneficiary Name</Nm>
+                </Cdtr>
+				<CdtrAcct>
+                    <Id>
+                        <Othr>
+                            <Id>12345678</Id>
+                        </Othr>
+                    </Id>
+                </CdtrAcct>
+                <RmtInf>
+				<Strd>
+				<CdtrRefInf>
+					<Tp>
+						<CdOrPrtry>
+							<Prtry>Beneficiary Ref</Prtry>
+						</CdOrPrtry>
+					</Tp>
+				</CdtrRefInf>
+				</Strd>
+                </RmtInf>
+            </CdtTrfTxInf>
+        </PmtInf>
+    </CstmrCdtTrfInitn>
+</Document>
