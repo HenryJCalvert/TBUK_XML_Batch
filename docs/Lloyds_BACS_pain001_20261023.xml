@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03">
+    <CstmrCdtTrfInitn>
+        <GrpHdr>
+            <MsgId>COMMERCIAL BANKING ONLINE</MsgId>
+            <CreDtTm>2026-10-23T16:15:06.558Z</CreDtTm>
+            <NbOfTxs>6</NbOfTxs>
+            <InitgPty/>
+        </GrpHdr>
+        <PmtInf>
+            <PmtInfId>1</PmtInfId>
+            <PmtMtd>TRA</PmtMtd>
+            <PmtTpInf>
+			<LclInstrm>
+                    <Prtry>UKBACS</Prtry>
+                </LclInstrm>
+				<CtgyPurp>
+					<Prtry>SUPP</Prtry>
+				</CtgyPurp>
+             </PmtTpInf>	
+            <ReqdExctnDt>2026-10-23</ReqdExctnDt>
+			<Dbtr/>
+            <DbtrAcct>
+                <Id>
+                    <Othr>
+                        <Id>301440-14438260</Id>
+                    </Othr>
+                </Id>
+            </DbtrAcct>
+            <DbtrAgt>
+                <FinInstnId/>
+            </DbtrAgt>
+            <CdtTrfTxInf>
+			<PmtId>
+				<EndToEndId>TryBooking Payment</EndToEndId>
+			</PmtId>
+                <Amt>
+                    <InstdAmt Ccy="GBP">1525.70</InstdAmt>
+                </Amt>
+                <CdtrAgt>
+					<FinInstnId>
+						<ClrSysMmbId>
+							<MmbId>403911</MmbId>
+						</ClrSysMmbId>
+					</FinInstnId>	
+				</CdtrAgt>
+                <Cdtr>
+                    <Nm>Mr Darran Charles Bramley  Mrs Fiona Christine Bramley</Nm>
+                </Cdtr>
+				<CdtrAcct>
+                    <Id>
+                        <Othr>
+                            <Id>01283138</Id>
+                        </Othr>
+                    </Id>
+                </CdtrAcct>
+                <RmtInf>
+				<Strd>
+				<CdtrRefInf>
+					<Tp>
+						<CdOrPrtry>
+							<Prtry>TryBooking Payment</Prtry>
+						</CdOrPrtry>
+					</Tp>
+				</CdtrRefInf>
+				</Strd>
+                </RmtInf>
+            </CdtTrfTxInf>
+            <CdtTrfTxInf>
+			<PmtId>
+				<EndToEndId>TryBooking Molsky</EndToEndId>
+			</PmtId>
+                <Amt>
+                    <InstdAmt Ccy="GBP">1244.10</InstdAmt>
+                </Amt>
+                <CdtrAgt>
+					<FinInstnId>
+						<ClrSysMmbId>
+							<MmbId>010893</MmbId>
+						</ClrSysMmbId>
+					</FinInstnId>	
+				</CdtrAgt>
+                <Cdtr>
+                    <Nm>Furness Tradition</Nm>
+                </Cdtr>
+				<CdtrAcct>
+                    <Id>
+                        <Othr>
+                            <Id>056516177</Id>
+                        </Othr>
+                    </Id>
+                </CdtrAcct>
+                <RmtInf>
+				<Strd>
+				<CdtrRefInf>
+					<Tp>
+						<CdOrPrtry>
+							<Prtry>TryBooking Molsky</Prtry>
+						</CdOrPrtry>
+					</Tp>
+				</CdtrRefInf>
+				</Strd>
+                </RmtInf>
+            </CdtTrfTxInf>
+            <CdtTrfTxInf>
+			<PmtId>
+				<EndToEndId>TryBooking Payment</EndToEndId>
+			</PmtId>
+                <Amt>
+                    <InstdAmt Ccy="GBP">1240.60</InstdAmt>
+                </Amt>
+                <CdtrAgt>
+					<FinInstnId>
+						<ClrSysMmbId>
+							<MmbId>110036</MmbId>
+						</ClrSysMmbId>
+					</FinInstnId>	
+				</CdtrAgt>
+                <Cdtr>
+                    <Nm>Mr Simon Rumble</Nm>
+                </Cdtr>
+				<CdtrAcct>
+                    <Id>
+                        <Othr>
+                            <Id>13459566</Id>
+                        </Othr>
+                    </Id>
+                </CdtrAcct>
+                <RmtInf>
+				<Strd>
+				<CdtrRefInf>
+					<Tp>
+						<CdOrPrtry>
+							<Prtry>TryBooking Payment</Prtry>
+						</CdOrPrtry>
+					</Tp>
+				</CdtrRefInf>
+				</Strd>
+                </RmtInf>
+            </CdtTrfTxInf>
+            <CdtTrfTxInf>
+			<PmtId>
+				<EndToEndId>TryBkg Schola 21Oc</EndToEndId>
+			</PmtId>
+                <Amt>
+                    <InstdAmt Ccy="GBP">1755.60</InstdAmt>
+                </Amt>
+                <CdtrAgt>
+					<FinInstnId>
+						<ClrSysMmbId>
+							<MmbId>309379</MmbId>
+						</ClrSysMmbId>
+					</FinInstnId>	
+				</CdtrAgt>
+                <Cdtr>
+                    <Nm>Saint John Southworth Foundation</Nm>
+                </Cdtr>
+				<CdtrAcct>
+                    <Id>
+                        <Othr>
+                            <Id>02867408</Id>
+                        </Othr>
+                    </Id>
+                </CdtrAcct>
+                <RmtInf>
+				<Strd>
+				<CdtrRefInf>
+					<Tp>
+						<CdOrPrtry>
+							<Prtry>TryBkg Schola 21Oc</Prtry>
+						</CdOrPrtry>
+					</Tp>
+				</CdtrRefInf>
+				</Strd>
+                </RmtInf>
+            </CdtTrfTxInf>
+            <CdtTrfTxInf>
+			<PmtId>
+				<EndToEndId>TryBooking Payment</EndToEndId>
+			</PmtId>
+                <Amt>
+                    <InstdAmt Ccy="GBP">1441.50</InstdAmt>
+                </Amt>
+                <CdtrAgt>
+					<FinInstnId>
+						<ClrSysMmbId>
+							<MmbId>309391</MmbId>
+						</ClrSysMmbId>
+					</FinInstnId>	
+				</CdtrAgt>
+                <Cdtr>
+                    <Nm>Harrogate Theatre Choir</Nm>
+                </Cdtr>
+				<CdtrAcct>
+                    <Id>
+                        <Othr>
+                            <Id>25836168</Id>
+                        </Othr>
+                    </Id>
+                </CdtrAcct>
+                <RmtInf>
+				<Strd>
+				<CdtrRefInf>
+					<Tp>
+						<CdOrPrtry>
+							<Prtry>TryBooking Payment</Prtry>
+						</CdOrPrtry>
+					</Tp>
+				</CdtrRefInf>
+				</Strd>
+                </RmtInf>
+            </CdtTrfTxInf>
+            <CdtTrfTxInf>
+			<PmtId>
+				<EndToEndId>TryBooking Payment</EndToEndId>
+			</PmtId>
+                <Amt>
+                    <InstdAmt Ccy="GBP">1532.80</InstdAmt>
+                </Amt>
+                <CdtrAgt>
+					<FinInstnId>
+						<ClrSysMmbId>
+							<MmbId>090127</MmbId>
+						</ClrSysMmbId>
+					</FinInstnId>	
+				</CdtrAgt>
+                <Cdtr>
+                    <Nm>MR T G ROWAN</Nm>
+                </Cdtr>
+				<CdtrAcct>
+                    <Id>
+                        <Othr>
+                            <Id>42961220</Id>
+                        </Othr>
+                    </Id>
+                </CdtrAcct>
+                <RmtInf>
+				<Strd>
+				<CdtrRefInf>
+					<Tp>
+						<CdOrPrtry>
+							<Prtry>TryBooking Payment</Prtry>
+						</CdOrPrtry>
+					</Tp>
+				</CdtrRefInf>
+				</Strd>
+                </RmtInf>
+            </CdtTrfTxInf>
+        </PmtInf>
+    </CstmrCdtTrfInitn>
+</Document>

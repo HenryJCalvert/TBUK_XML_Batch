@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03">
+    <CstmrCdtTrfInitn>
+        <GrpHdr>                                               
+            <MsgId>COMMERCIAL BANKING ONLINE</MsgId>           
+            <CreDtTm>2026-10-23T16:15:06.558Z</CreDtTm>         
+            <NbOfTxs>5</NbOfTxs>                               
+            <InitgPty/>
+        </GrpHdr>
+		
+        <PmtInf>                                               
+            <PmtInfId>1</PmtInfId>                          
+            <PmtMtd>TRA</PmtMtd>                                
+            <PmtTpInf>                     
+				<LclInstrm>
+                    <Prtry>FPS</Prtry>                         
+                </LclInstrm>
+				<CtgyPurp>
+					<Prtry>SUPP</Prtry>          
+				</CtgyPurp>
+             </PmtTpInf>	
+            <ReqdExctnDt>2026-10-23</ReqdExctnDt>              
+            <Dbtr/>
+            <DbtrAcct>
+                <Id>
+                    <Othr>
+                        <Id>301440-14438260</Id>               
+                    </Othr>
+                </Id>
+            </DbtrAcct>
+            <DbtrAgt>
+                <FinInstnId/>                        
+            </DbtrAgt>
+            <CdtTrfTxInf>
+			<PmtId>
+				<EndToEndId>TryBooking Payment</EndToEndId>    
+            </PmtId>
+                <Amt>
+                    <InstdAmt Ccy="GBP">5316.59</InstdAmt>  
+                </Amt>
+                <CdtrAgt>
+                    <FinInstnId>
+                        <ClrSysMmbId>
+                            <MmbId>040006</MmbId>              
+                        </ClrSysMmbId>
+                    </FinInstnId>
+                </CdtrAgt>
+                <Cdtr>
+                    <Nm>Shivawn Joubert</Nm>                    
+                </Cdtr>
+                <CdtrAcct>
+                    <Id>
+                        <Othr>
+                            <Id>91022467</Id>                  
+                        </Othr>
+                    </Id>
+                </CdtrAcct>
+				<RmtInf>
+					<Ustrd>PAYMENT TryBooking Payment</Ustrd>    
+					<Strd>
+						<CdtrRefInf>
+							<Tp>
+								<CdOrPrtry>
+									<Prtry>TryBooking Payment</Prtry> 
+								</CdOrPrtry>
+							</Tp>
+						</CdtrRefInf>
+					</Strd>
+				</RmtInf>
+            </CdtTrfTxInf>
+            <CdtTrfTxInf>
+			<PmtId>
+				<EndToEndId>TryBooking Quiz</EndToEndId>    
+            </PmtId>
+                <Amt>
+                    <InstdAmt Ccy="GBP">4702.38</InstdAmt>  
+                </Amt>
+                <CdtrAgt>
+                    <FinInstnId>
+                        <ClrSysMmbId>
+                            <MmbId>309087</MmbId>              
+                        </ClrSysMmbId>
+                    </FinInstnId>
+                </CdtrAgt>
+                <Cdtr>
+                    <Nm>PCA Social Club</Nm>                    
+                </Cdtr>
+                <CdtrAcct>
+                    <Id>
+                        <Othr>
+                            <Id>29931868</Id>                  
+                        </Othr>
+                    </Id>
+                </CdtrAcct>
+				<RmtInf>
+					<Ustrd>PAYMENT TryBooking Quiz</Ustrd>    
+					<Strd>
+						<CdtrRefInf>
+							<Tp>
+								<CdOrPrtry>
+									<Prtry>TryBooking Quiz</Prtry> 
+								</CdOrPrtry>
+							</Tp>
+						</CdtrRefInf>
+					</Strd>
+				</RmtInf>
+            </CdtTrfTxInf>
+            <CdtTrfTxInf>
+			<PmtId>
+				<EndToEndId>Cerddorfa 151026</EndToEndId>    
+            </PmtId>
+                <Amt>
+                    <InstdAmt Ccy="GBP">3141.60</InstdAmt>  
+                </Amt>
+                <CdtrAgt>
+                    <FinInstnId>
+                        <ClrSysMmbId>
+                            <MmbId>309894</MmbId>              
+                        </ClrSysMmbId>
+                    </FinInstnId>
+                </CdtrAgt>
+                <Cdtr>
+                    <Nm>YGG PLASMAWR  GRONFA</Nm>                    
+                </Cdtr>
+                <CdtrAcct>
+                    <Id>
+                        <Othr>
+                            <Id>47566868</Id>                  
+                        </Othr>
+                    </Id>
+                </CdtrAcct>
+				<RmtInf>
+					<Ustrd>PAYMENT Cerddorfa 151026</Ustrd>    
+					<Strd>
+						<CdtrRefInf>
+							<Tp>
+								<CdOrPrtry>
+									<Prtry>Cerddorfa 151026</Prtry> 
+								</CdOrPrtry>
+							</Tp>
+						</CdtrRefInf>
+					</Strd>
+				</RmtInf>
+            </CdtTrfTxInf>
+            <CdtTrfTxInf>
+			<PmtId>
+				<EndToEndId>TryBooking Traf 26</EndToEndId>    
+            </PmtId>
+                <Amt>
+                    <InstdAmt Ccy="GBP">4049.90</InstdAmt>  
+                </Amt>
+                <CdtrAgt>
+                    <FinInstnId>
+                        <ClrSysMmbId>
+                            <MmbId>560027</MmbId>              
+                        </ClrSysMmbId>
+                    </FinInstnId>
+                </CdtrAgt>
+                <Cdtr>
+                    <Nm>The Marine Society and Sea Cadets</Nm>                    
+                </Cdtr>
+                <CdtrAcct>
+                    <Id>
+                        <Othr>
+                            <Id>00423750</Id>                  
+                        </Othr>
+                    </Id>
+                </CdtrAcct>
+				<RmtInf>
+					<Ustrd>PAYMENT TryBooking Traf 26</Ustrd>    
+					<Strd>
+						<CdtrRefInf>
+							<Tp>
+								<CdOrPrtry>
+									<Prtry>TryBooking Traf 26</Prtry> 
+								</CdOrPrtry>
+							</Tp>
+						</CdtrRefInf>
+					</Strd>
+				</RmtInf>
+            </CdtTrfTxInf>
+            <CdtTrfTxInf>
+			<PmtId>
+				<EndToEndId>Cardiff22</EndToEndId>    
+            </PmtId>
+                <Amt>
+                    <InstdAmt Ccy="GBP">2170.90</InstdAmt>  
+                </Amt>
+                <CdtrAgt>
+                    <FinInstnId>
+                        <ClrSysMmbId>
+                            <MmbId>040005</MmbId>              
+                        </ClrSysMmbId>
+                    </FinInstnId>
+                </CdtrAgt>
+                <Cdtr>
+                    <Nm>Mr Sam Gardner</Nm>                    
+                </Cdtr>
+                <CdtrAcct>
+                    <Id>
+                        <Othr>
+                            <Id>96275298</Id>                  
+                        </Othr>
+                    </Id>
+                </CdtrAcct>
+				<RmtInf>
+					<Ustrd>PAYMENT Cardiff22</Ustrd>    
+					<Strd>
+						<CdtrRefInf>
+							<Tp>
+								<CdOrPrtry>
+									<Prtry>Cardiff22</Prtry> 
+								</CdOrPrtry>
+							</Tp>
+						</CdtrRefInf>
+					</Strd>
+				</RmtInf>
+            </CdtTrfTxInf>
+        </PmtInf>		
+    </CstmrCdtTrfInitn>
+</Document>
