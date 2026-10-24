@@ -39,7 +39,7 @@ export const SummaryTotals: React.FC<SummaryTotalsProps> = ({
             {formatGBP(summary.totalAmount)}
           </div>
           <div className="text-xs text-slate-500 mt-0.5">
-            {summary.totalCount} total payments
+            {summary.totalCount} payments to make
           </div>
         </div>
 

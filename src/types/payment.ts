@@ -2,6 +2,16 @@ import { todayInLondon } from '../utils/ukBankingCalendar';
 
 export type PaymentRail = 'O4B' | 'BACS' | 'FasterPay';
 
+/** One row of the uploaded CSV, exactly as imported. */
+export interface SourcePaymentRecord {
+  rowNumber: number; // Line number in the CSV file (header is line 1)
+  sortCode: string;
+  accountNumber: string;
+  amount: number;
+  payeeName: string;
+  payeeReference: string;
+}
+
 /**
  * A single UK credit transfer to a payee.
  *
@@ -16,6 +26,9 @@ export interface PaymentTransaction {
   amount: number; // GBP, e.g. 402.00
   payeeName: string; // Beneficiary (payee) account name
   payeeReference: string; // Reference shown on the payee's statement (max 18 chars for BACS)
+  // CSV records paid by this payment. More than one when identical records (same payee name,
+  // sort code, account number and reference) were consolidated; `amount` is their total.
+  sourceRecords: SourcePaymentRecord[];
   assignedRail: PaymentRail;
   isManualOverride?: boolean;
   o4bBatchNumber?: number; // e.g. 1, 2, 3...

@@ -11,6 +11,7 @@ import {
   downloadFile,
 } from '../utils/xmlGenerator';
 import { formatLloydsDebitAccount } from '../utils/bankLookup';
+import { getConsolidationStats, describePaymentCount } from '../utils/consolidation';
 import {
   Download,
   Copy,
@@ -97,6 +98,11 @@ export const XmlExportModal: React.FC<XmlExportModalProps> = ({
   const combinedTotalCount = bacsTxs.length + fpsTxs.length;
   const combinedTotalAmount = (bacsBatch.totalPence + fpsBatch.totalPence) / 100;
 
+  // Payments in each file vs. the CSV records they cover (identical records are consolidated)
+  const bacsStats = getConsolidationStats(bacsTxs);
+  const fpsStats = getConsolidationStats(fpsTxs);
+  const combinedRecords = bacsStats.records + fpsStats.records;
+
   const bacsExecutionDate = dates.bacs.date;
   const fpsExecutionDate = dates.fps.date;
   const debitAccount = formatLloydsDebitAccount(debtor.debtorSortCode, debtor.debtorAccountNumber);
@@ -110,6 +116,7 @@ export const XmlExportModal: React.FC<XmlExportModalProps> = ({
   const activeFileName = activeTab === 'BACS' ? bacsFileName : fpsFileName;
   const activeCount = activeTab === 'BACS' ? bacsTxs.length : fpsTxs.length;
   const activeAmount = activeTab === 'BACS' ? bacsAmount : fpsAmount;
+  const activeStats = activeTab === 'BACS' ? bacsStats : fpsStats;
   const activeErrors = activeBatch.issues.filter((i) => i.level === 'error');
   const activeWarnings = activeBatch.issues.filter((i) => i.level === 'warning');
   const canDownloadActive = activeCount > 0 && !activeBatch.hasErrors;
@@ -235,7 +242,10 @@ export const XmlExportModal: React.FC<XmlExportModalProps> = ({
             <div className="flex items-center space-x-2 text-xs font-mono pt-0.5">
               <span className="text-slate-500 font-sans font-medium">Export Batches Combined:</span>
               <span className="font-bold text-slate-900">
-                {combinedTotalCount} selected payments
+                {combinedTotalCount} payments to export
+                {combinedRecords !== combinedTotalCount && (
+                  <span className="text-violet-700"> ({combinedRecords} records, {combinedRecords - combinedTotalCount} merged)</span>
+                )}
               </span>
               <span>·</span>
               <span className="font-bold text-emerald-700">
@@ -291,7 +301,7 @@ export const XmlExportModal: React.FC<XmlExportModalProps> = ({
               </div>
               <div className="text-right font-mono">
                 <div className="text-xs font-bold text-blue-900">{formatGBP(bacsAmount)}</div>
-                <div className="text-[10px] text-slate-500">{bacsTxs.length} selected</div>
+                <div className="text-[10px] text-slate-500">{describePaymentCount(bacsStats)}</div>
               </div>
             </button>
 
@@ -316,7 +326,7 @@ export const XmlExportModal: React.FC<XmlExportModalProps> = ({
               </div>
               <div className="text-right font-mono">
                 <div className="text-xs font-bold text-red-900">{formatGBP(fpsAmount)}</div>
-                <div className="text-[10px] text-slate-500">{fpsTxs.length} selected</div>
+                <div className="text-[10px] text-slate-500">{describePaymentCount(fpsStats)}</div>
               </div>
             </button>
           </div>
@@ -330,7 +340,7 @@ export const XmlExportModal: React.FC<XmlExportModalProps> = ({
               {activeFileName}
             </span>
             <span>·</span>
-            <span>{activeCount} payments</span>
+            <span title="NbOfTxs in the file">{describePaymentCount(activeStats)}</span>
             <span>·</span>
             <span>{formatGBP(activeAmount)}</span>
           </div>
@@ -412,7 +422,7 @@ export const XmlExportModal: React.FC<XmlExportModalProps> = ({
                 <>
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
                   <span>
-                    {activeCount} selected payments validated for{' '}
+                    {activeCount} payments validated for{' '}
                     {activeTab === 'BACS'
                       ? 'Lloyds BACS Direct Credit (UKBACS)'
                       : 'Lloyds Faster Payments (FPS Instant)'}
@@ -429,7 +439,7 @@ export const XmlExportModal: React.FC<XmlExportModalProps> = ({
         <div className="p-4 px-6 border-t border-slate-200 bg-white flex items-center justify-between">
           <div className="text-xs text-slate-500 font-mono">
             <span>Selected for {activeTab}: </span>
-            <strong className="text-slate-800">{activeCount} payments ({formatGBP(activeAmount)})</strong>
+            <strong className="text-slate-800">{describePaymentCount(activeStats)} · {formatGBP(activeAmount)}</strong>
           </div>
 
           <div className="flex items-center space-x-2">

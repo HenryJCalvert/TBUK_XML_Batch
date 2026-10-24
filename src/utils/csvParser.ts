@@ -1,4 +1,5 @@
-import { PaymentTransaction, PaymentRail, ThresholdLimits } from '../types/payment';
+import { PaymentTransaction, PaymentRail, SourcePaymentRecord, ThresholdLimits } from '../types/payment';
+import { consolidateRecords } from './consolidation';
 
 /**
  * Standard CSV line parser that handles quotes, escaped quotes, and commas inside fields.
@@ -87,7 +88,7 @@ export function parsePaymentCsv(csvText: string, limits: ThresholdLimits): Payme
   const colPayeeReference = findColumn(headers, COLUMN_ALIASES.payeeReference);
   const pick = (cols: string[], col: number, fallbackCol: number) => (cols[col !== -1 ? col : fallbackCol] ?? '').trim();
 
-  const transactions: PaymentTransaction[] = [];
+  const records: SourcePaymentRecord[] = [];
 
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCsvLine(lines[i]);
@@ -95,19 +96,30 @@ export function parsePaymentCsv(csvText: string, limits: ThresholdLimits): Payme
 
     // Unreadable amounts become 0.00, which the Lloyds export validation rejects
     const parsedAmount = parseGbpAmount(pick(cols, colAmount, 4));
-    const amount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
 
-    transactions.push({
-      id: `tx-${i}-${Math.random().toString(36).substring(2, 7)}`,
+    records.push({
+      rowNumber: i + 1,
       sortCode: pick(cols, colSortCode, 0),
       accountNumber: pick(cols, colAccountNumber, 1),
-      amount,
+      amount: Number.isFinite(parsedAmount) ? parsedAmount : 0,
       payeeName: pick(cols, colPayeeName, 5),
       payeeReference: pick(cols, colPayeeReference, 6),
-      assignedRail: determineRailByLimits(amount, limits),
-      isManualOverride: false,
     });
   }
+
+  // Identical records (payee, sort code, account number, reference) become one payment;
+  // the rail is chosen from the combined amount
+  const transactions = consolidateRecords(records, (group, amount) => ({
+    id: `tx-${group[0].rowNumber}-${Math.random().toString(36).substring(2, 7)}`,
+    sortCode: group[0].sortCode,
+    accountNumber: group[0].accountNumber,
+    amount,
+    payeeName: group[0].payeeName.replace(/\s+/g, ' ').trim(),
+    payeeReference: group[0].payeeReference.replace(/\s+/g, ' ').trim(),
+    sourceRecords: group,
+    assignedRail: determineRailByLimits(amount, limits),
+    isManualOverride: false,
+  }));
 
   return transactions;
 }

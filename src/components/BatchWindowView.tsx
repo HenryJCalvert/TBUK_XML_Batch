@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { Fragment, useState, useMemo } from 'react';
 import { PaymentTransaction, PaymentRail, ThresholdLimits, O4bBatchInfo, FeeSchedule, DEFAULT_FEE_SCHEDULE, DebtorConfig, DEFAULT_DEBTOR_CONFIG } from '../types/payment';
 import {
   formatSortCode,
@@ -7,6 +7,7 @@ import {
   normaliseAccountNumber,
 } from '../utils/bankLookup';
 import { generateO4bBatchCsv, downloadFile } from '../utils/xmlGenerator';
+import { getConsolidationStats, isConsolidated, sourceRecordCount } from '../utils/consolidation';
 import {
   Search,
   ArrowUpDown,
@@ -19,6 +20,8 @@ import {
   ArrowRight,
   RotateCcw,
   Download,
+  ChevronRight,
+  Merge,
 } from 'lucide-react';
 
 interface BatchWindowViewProps {
@@ -67,6 +70,15 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<'amount' | 'payeeName' | 'sortCode'>('amount');
   const [sortAsc, setSortAsc] = useState(false);
+  // Consolidated payments whose source records are folded out for review
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const formatGBP = (val: number) =>
     new Intl.NumberFormat('en-GB', {
@@ -86,7 +98,11 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
       const selCount = selectedInRail.length;
       const selAmount = selectedInRail.reduce((s, t) => s + t.amount, 0);
 
-      return { count, amount, selCount, selAmount };
+      // Payments vs. the CSV records they cover (identical records are consolidated)
+      const stats = getConsolidationStats(allInRail);
+      const selStats = getConsolidationStats(selectedInRail);
+
+      return { count, amount, selCount, selAmount, stats, selStats };
     };
 
     return {
@@ -211,7 +227,12 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
 
             {/* Rows underneath: Total records count on left, Selected records count on right */}
             <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100 mt-1 font-mono">
-              <span>{railMetrics.ALL.count} records</span>
+              <span title={`${railMetrics.ALL.stats.records} CSV records paid as ${railMetrics.ALL.count} payments`}>
+                {railMetrics.ALL.count} payments
+                {railMetrics.ALL.stats.recordsMerged > 0 && (
+                  <span className="text-violet-700 font-semibold"> · {railMetrics.ALL.stats.recordsMerged} merged</span>
+                )}
+              </span>
               <span className={railMetrics.ALL.selCount > 0 ? 'text-emerald-700 font-semibold' : 'text-slate-400'}>
                 {railMetrics.ALL.selCount} selected
               </span>
@@ -245,7 +266,12 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
 
             {/* Rows underneath: Total records count on left, Selected records count on right */}
             <div className="flex items-center justify-between text-[11px] text-emerald-800/80 pt-1.5 border-t border-emerald-100 mt-1 font-mono">
-              <span>{railMetrics.O4B.count} records</span>
+              <span title={`${railMetrics.O4B.stats.records} CSV records paid as ${railMetrics.O4B.count} payments`}>
+                {railMetrics.O4B.count} payments
+                {railMetrics.O4B.stats.recordsMerged > 0 && (
+                  <span className="text-violet-700 font-semibold"> · {railMetrics.O4B.stats.recordsMerged} merged</span>
+                )}
+              </span>
               <span className={railMetrics.O4B.selCount > 0 ? 'text-emerald-900 font-bold' : 'text-slate-400'}>
                 {railMetrics.O4B.selCount} selected
               </span>
@@ -279,7 +305,12 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
 
             {/* Rows underneath: Total records count on left, Selected records count on right */}
             <div className="flex items-center justify-between text-[11px] text-blue-800/80 pt-1.5 border-t border-blue-100 mt-1 font-mono">
-              <span>{railMetrics.BACS.count} records</span>
+              <span title={`${railMetrics.BACS.stats.records} CSV records paid as ${railMetrics.BACS.count} payments`}>
+                {railMetrics.BACS.count} payments
+                {railMetrics.BACS.stats.recordsMerged > 0 && (
+                  <span className="text-violet-700 font-semibold"> · {railMetrics.BACS.stats.recordsMerged} merged</span>
+                )}
+              </span>
               <span className={railMetrics.BACS.selCount > 0 ? 'text-blue-900 font-bold' : 'text-slate-400'}>
                 {railMetrics.BACS.selCount} selected
               </span>
@@ -313,7 +344,12 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
 
             {/* Rows underneath: Total records count on left, Selected records count on right */}
             <div className="flex items-center justify-between text-[11px] text-red-800/80 pt-1.5 border-t border-red-100 mt-1 font-mono">
-              <span>{railMetrics.FasterPay.count} records</span>
+              <span title={`${railMetrics.FasterPay.stats.records} CSV records paid as ${railMetrics.FasterPay.count} payments`}>
+                {railMetrics.FasterPay.count} payments
+                {railMetrics.FasterPay.stats.recordsMerged > 0 && (
+                  <span className="text-violet-700 font-semibold"> · {railMetrics.FasterPay.stats.recordsMerged} merged</span>
+                )}
+              </span>
               <span className={railMetrics.FasterPay.selCount > 0 ? 'text-red-900 font-bold' : 'text-slate-400'}>
                 {railMetrics.FasterPay.selCount} selected
               </span>
@@ -574,10 +610,12 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                 const net = margin - fee;
                 const bankName = getBankNameFromSortCode(tx.sortCode);
                 const isO4bCommitted = tx.assignedRail === 'O4B' && tx.o4bBatchCommitted;
+                const consolidated = isConsolidated(tx);
+                const isExpanded = consolidated && expandedIds.has(tx.id);
 
                 return (
+                  <Fragment key={tx.id}>
                   <tr
-                    key={tx.id}
                     className={`transition-colors group ${
                       isSelected
                         ? 'bg-emerald-50/40'
@@ -663,6 +701,20 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                       <div className="text-[11px] text-slate-400 font-normal">
                         Ref: {tx.payeeReference || 'N/A'}
                       </div>
+                      {consolidated && (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(tx.id)}
+                          aria-expanded={isExpanded}
+                          aria-controls={`fold-${tx.id}`}
+                          className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-violet-50 text-violet-800 border border-violet-300 hover:bg-violet-100 cursor-pointer"
+                          title="Identical payee, sort code, account number and reference: paid as one payment"
+                        >
+                          <ChevronRight className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                          <Merge className="w-3 h-3" />
+                          {sourceRecordCount(tx)} records consolidated
+                        </button>
+                      )}
                     </td>
                     <td className="py-2.5 px-3 font-mono text-slate-700">
                       <div>{formatSortCode(tx.sortCode)}</div>
@@ -745,6 +797,40 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                       {formatGBP(net)}
                     </td>
                   </tr>
+                  {isExpanded && (
+                    // Z-fold review panel: each source record is a fold, alternately offset, adding up to the payment
+                    <tr id={`fold-${tx.id}`} className="bg-violet-50/40">
+                      <td colSpan={activeTab === 'O4B' ? 10 : 9} className="px-3 pb-3 pt-0">
+                        <div className="ml-10 border-l-2 border-violet-300 pl-3 pt-2 space-y-1">
+                          <div className="text-[11px] font-semibold text-violet-900">
+                            {sourceRecordCount(tx)} identical records consolidated into one payment
+                          </div>
+                          {tx.sourceRecords.map((r, i) => (
+                            <div
+                              key={r.rowNumber}
+                              className={`flex flex-wrap items-center gap-x-4 gap-y-0.5 px-2.5 py-1.5 rounded border border-violet-200 bg-white text-[11px] font-mono text-slate-700 shadow-2xs max-w-3xl ${
+                                i % 2 === 1 ? 'ml-6 -skew-x-3' : 'skew-x-3'
+                              }`}
+                            >
+                              <span className="text-violet-700 font-semibold">CSV row {r.rowNumber}</span>
+                              <span className="font-sans">{r.payeeName}</span>
+                              <span>{formatSortCode(r.sortCode)}</span>
+                              <span>{r.accountNumber}</span>
+                              <span className="font-sans">Ref: {r.payeeReference || 'N/A'}</span>
+                              <span className="ml-auto font-bold text-slate-900 tabular-nums">{formatGBP(r.amount)}</span>
+                            </div>
+                          ))}
+                          <div className="flex items-center justify-between max-w-3xl px-2.5 pt-1 text-[11px] font-mono border-t border-violet-200">
+                            <span className="text-violet-900 font-sans font-semibold">
+                              Exported as 1 payment ({sourceRecordCount(tx) - 1} fewer, saving {formatGBP(fee * (sourceRecordCount(tx) - 1))} in fees)
+                            </span>
+                            <span className="font-bold text-slate-900 tabular-nums">= {formatGBP(tx.amount)}</span>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })
             )}
@@ -758,10 +844,18 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
           <span className="font-semibold text-slate-800 font-sans">
             Listing all {sortedTransactions.length} payments
           </span>
+          {currentTabMetric.stats.recordsMerged > 0 && (
+            <>
+              <span className="text-slate-300">·</span>
+              <span className="text-violet-800" title="Identical payee, sort code, account number and reference">
+                {currentTabMetric.stats.records} CSV records → {currentTabMetric.count} payments ({currentTabMetric.stats.recordsMerged} merged)
+              </span>
+            </>
+          )}
           <span className="text-slate-300">·</span>
           <span>Total: <strong className="text-slate-900">{formatGBP(currentTabMetric.amount)}</strong></span>
           <span className="text-slate-300">·</span>
-          <span>Selected: <strong className="text-emerald-700">{formatGBP(currentTabMetric.selAmount)}</strong> ({currentTabMetric.selCount})</span>
+          <span>Selected: <strong className="text-emerald-700">{formatGBP(currentTabMetric.selAmount)}</strong> ({currentTabMetric.selCount} payments{currentTabMetric.selStats.recordsMerged > 0 ? `, ${currentTabMetric.selStats.records} records` : ''})</span>
           {activeTab === 'O4B' && (
             <>
               <span className="text-slate-300">·</span>

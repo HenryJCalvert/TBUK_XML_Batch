@@ -12,12 +12,10 @@ import {
 export const LLOYDS_PAYEE_NAME_MAX = 18;
 export const LLOYDS_PAYEE_REFERENCE_MAX = 18;
 export const LLOYDS_DEBIT_REFERENCE_MAX = 18;
-export const LLOYDS_FPS_ADDITIONAL_REFERENCE_MAX = 26;
+export const LLOYDS_FPS_ADDITIONAL_REFERENCE_MAX = 26; // <Ustrd>; carries the payee reference unchanged
 export const ISO_END_TO_END_ID_MAX = 35;
 /** Bacs requires at least 6 letters/digits in the payee reference */
 export const BACS_REFERENCE_MIN_ALPHANUMERIC = 6;
-/** Fallback reference used when a payment has none (meets the Bacs 6-character minimum) */
-export const DEFAULT_PAYEE_REFERENCE = 'TRYBOOKING';
 
 /**
  * Escapes characters for safe inclusion in XML
@@ -142,12 +140,16 @@ export function prepareLloydsPayment(
     add('warning', 'payeeName', `Name will be sent as "${payeeName}"`);
   }
 
-  const cleanedRef = sanitizeReference(tx.payeeReference);
-  const payeeReference = cleanedRef || DEFAULT_PAYEE_REFERENCE;
+  // The payment reference is sent as uploaded: nothing is added to it, and a missing reference
+  // is an error rather than being replaced. Only characters the bank can't carry are removed
+  // and it is limited to 18 characters, both reported as warnings.
+  const payeeReference = sanitizeReference(tx.payeeReference);
   const rawRef = (tx.payeeReference || '').replace(/\s+/g, ' ').trim();
   const refAlphanumerics = payeeReference.replace(/[^A-Za-z0-9]/g, '');
   const refRuleLevel: LloydsIssueLevel = rail === 'BACS' ? 'error' : 'warning';
-  if (refAlphanumerics.length < BACS_REFERENCE_MIN_ALPHANUMERIC) {
+  if (!payeeReference) {
+    add('error', 'payeeReference', 'Payment reference is missing');
+  } else if (refAlphanumerics.length < BACS_REFERENCE_MIN_ALPHANUMERIC) {
     add(refRuleLevel, 'payeeReference', `Reference "${payeeReference}" has fewer than ${BACS_REFERENCE_MIN_ALPHANUMERIC} letters or digits${rail === 'BACS' ? '' : ' (BACS minimum; may be rejected)'}`);
   } else if (/^(.)\1+$/.test(refAlphanumerics)) {
     add(refRuleLevel, 'payeeReference', `Reference "${payeeReference}" cannot be a single repeated character`);
@@ -215,19 +217,20 @@ export function validateLloydsBatch(
     issues.push(...txIssues);
   });
 
-  // Same payee, amount and reference twice in one file is usually a duplicated source row
+  // Identical records were already consolidated on import. Anything still sharing an account and
+  // reference differs in payee name (e.g. a typo), so it was kept separate: flag it for review.
   const seen = new Map<string, LloydsPreparedPayment>();
   payments.forEach((p) => {
     if (!p.sortCode || !p.accountNumber) return;
-    const key = `${p.sortCode}|${p.accountNumber}|${p.amountPence}|${p.payeeReference}`;
+    const key = `${p.sortCode}|${p.accountNumber}|${(p.tx.payeeReference || '').trim()}`;
     const first = seen.get(key);
     if (first) {
       issues.push({
         level: 'warning',
         txId: p.tx.id,
         payeeName: p.payeeName || p.tx.id,
-        field: 'amount',
-        message: `Possible duplicate: same account, amount and reference as another payment to "${first.payeeName}"`,
+        field: 'payeeName',
+        message: `Same account and reference as "${first.tx.payeeName}" but a different payee name, so not consolidated`,
       });
     } else {
       seen.set(key, p);
@@ -394,8 +397,8 @@ export function generateLloydsFasterPaymentsXml(
       const seqStr = String(idx + 1).padStart(2, '0');
       const endToEndId = escapeXml(sanitizeReference(`${p.payeeReference}-${seqStr}`, ISO_END_TO_END_ID_MAX));
       const beneRef = escapeXml(p.payeeReference);
-      // Template "ADDITIONAL REFERENCE FPS" (<Ustrd>)
-      const additionalRef = escapeXml(sanitizeReference(`PAYMENT ${p.payeeReference}`, LLOYDS_FPS_ADDITIONAL_REFERENCE_MAX));
+      // Template "ADDITIONAL REFERENCE FPS" (<Ustrd>): the payment reference as uploaded, nothing added
+      const additionalRef = escapeXml(sanitizeReference(p.payeeReference, LLOYDS_FPS_ADDITIONAL_REFERENCE_MAX));
       const amtStr = formatPenceAsGbp(p.amountPence);
 
       return `            <CdtTrfTxInf>
@@ -484,6 +487,7 @@ ${txXmlItems}
  * Records the batch number for each selected transaction, using UK field names and the
  * same 6-digit sort code / 8-digit account number values as the Lloyds XML files.
  * Rows whose bank details can't be normalised are written with STATUS "CHECK DETAILS".
+ * One row per payment: consolidated records appear once, with their CSV row numbers listed.
  */
 export function generateO4bBatchCsv(
   transactions: PaymentTransaction[],
@@ -491,7 +495,7 @@ export function generateO4bBatchCsv(
   batchNumber?: number
 ): string {
   const q = (v: string) => `"${(v ?? '').replace(/"/g, '""')}"`;
-  const header = ['BATCH_NO', 'STATUS', 'SORT_CODE', 'ACCOUNT_NUMBER', 'AMOUNT_GBP', 'PAYEE_NAME', 'PAYEE_REFERENCE', 'DEBIT_SORT_CODE', 'DEBIT_ACCOUNT_NUMBER', 'DEBIT_ACCOUNT_NAME']
+  const header = ['BATCH_NO', 'STATUS', 'SORT_CODE', 'ACCOUNT_NUMBER', 'AMOUNT_GBP', 'PAYEE_NAME', 'PAYEE_REFERENCE', 'SOURCE_RECORDS', 'SOURCE_CSV_ROWS', 'DEBIT_SORT_CODE', 'DEBIT_ACCOUNT_NUMBER', 'DEBIT_ACCOUNT_NAME']
     .map(q)
     .join(',');
   const debitSort = (debtor.debtorSortCode || '').replace(/\D/g, '');
@@ -508,6 +512,8 @@ export function generateO4bBatchCsv(
       Number.isFinite(payment.amountPence) ? formatPenceAsGbp(payment.amountPence) : String(t.amount),
       t.payeeName,
       t.payeeReference || '',
+      String(t.sourceRecords?.length || 1),
+      (t.sourceRecords || []).map((r) => r.rowNumber).join(';'),
       debitSort,
       debitAccount,
       debtor.debtorName,
