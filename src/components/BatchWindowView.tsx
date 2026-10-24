@@ -24,7 +24,50 @@ import {
   ChevronRight,
   Merge,
   AlertCircle,
+  Copy,
 } from 'lucide-react';
+
+/** Small on/off switch used to pay a group of identical records as one payment or separately. */
+const PayAsOneSwitch: React.FC<{
+  checked: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
+  onChange: (checked: boolean) => void;
+}> = ({ checked, disabled, disabledReason, onChange }) => (
+  <label
+    className={`inline-flex items-center gap-1.5 text-[10px] font-semibold select-none ${
+      disabled ? 'text-slate-400 cursor-not-allowed' : 'text-violet-900 cursor-pointer'
+    }`}
+    title={
+      disabled
+        ? disabledReason
+        : checked
+        ? 'Switch off to pay each identical record as a separate payment'
+        : 'Switch on to pay all identical records as one payment'
+    }
+  >
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange(!checked);
+      }}
+      className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition ${
+        checked ? 'bg-violet-600' : 'bg-slate-300'
+      } ${disabled ? 'opacity-50' : 'cursor-pointer'}`}
+    >
+      <span
+        className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${
+          checked ? 'translate-x-3.5' : 'translate-x-0.5'
+        }`}
+      />
+    </button>
+    Pay as one payment
+  </label>
+);
 
 // Conformance failures: pink row, bold red value (with the reason on hover)
 const FAIL_TEXT = 'text-red-700 font-bold';
@@ -43,6 +86,7 @@ interface BatchWindowViewProps {
   onSelectAll: (ids: string[]) => void;
   onDeselectAll: (ids: string[]) => void;
   onBulkReassign: (txIds: string[], targetRail: PaymentRail) => void;
+  onSetPaidSeparately?: (txId: string, separately: boolean) => void;
   onOpenReconciliation: () => void;
   // O4B Batching Props
   currentO4bBatchNumber: number;
@@ -65,6 +109,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
   onSelectAll,
   onDeselectAll,
   onBulkReassign,
+  onSetPaidSeparately,
   onOpenReconciliation,
   currentO4bBatchNumber,
   onCommitO4bBatch,
@@ -93,6 +138,34 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
       currency: 'GBP',
       minimumFractionDigits: 2,
     }).format(val);
+
+  // Identical-record groups: how many payments each group is currently paid as, and whether
+  // any of them is already committed to an O4B batch (then it can't be merged/split)
+  const groupInfo = useMemo(() => {
+    const map = new Map<string, { payments: number; records: number; locked: boolean }>();
+    transactions.forEach((t) => {
+      if (!t.consolidationKey) return;
+      const g = map.get(t.consolidationKey) || { payments: 0, records: 0, locked: false };
+      g.payments += 1;
+      g.records += sourceRecordCount(t);
+      g.locked = g.locked || !!t.o4bBatchCommitted;
+      map.set(t.consolidationKey, g);
+    });
+    return map;
+  }, [transactions]);
+  const LOCKED_REASON = 'Part of this group is committed to an O4B batch; reset O4B batches to change it';
+
+  // Payment reference copy (O4B payments are keyed manually)
+  const [copiedRefId, setCopiedRefId] = useState<string | null>(null);
+  const copyReference = async (id: string, reference: string) => {
+    try {
+      await navigator.clipboard.writeText(reference);
+      setCopiedRefId(id);
+      setTimeout(() => setCopiedRefId((cur) => (cur === id ? null : cur)), 1500);
+    } catch {
+      setCopiedRefId(null);
+    }
+  };
 
   // Conformance check per payment (and each record it was consolidated from)
   const conformanceById = useMemo(() => {
@@ -595,7 +668,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                 className="py-2.5 px-3 cursor-pointer hover:text-slate-900 bg-slate-50"
               >
                 <div className="flex items-center space-x-1">
-                  <span>Payee Name &amp; Reference</span>
+                  <span>{activeTab === 'O4B' ? 'Payee Name' : <>Payee Name &amp; Reference</>}</span>
                   <ArrowUpDown className="w-3 h-3 text-slate-400" />
                 </div>
               </th>
@@ -618,6 +691,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                   <ArrowUpDown className="w-3 h-3 text-slate-400" />
                 </div>
               </th>
+              {activeTab === 'O4B' && <th className="py-2.5 px-3 bg-slate-50">Payment Reference</th>}
               <th className="py-2.5 px-3 text-center bg-slate-50">Rail</th>
               <th className="py-2.5 px-3 text-right bg-slate-50">Fee</th>
               <th className="py-2.5 px-3 text-right bg-slate-50">Margin ({profitMarginPercent}%)</th>
@@ -627,7 +701,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
           <tbody className="divide-y divide-slate-100 text-xs">
             {sortedTransactions.length === 0 ? (
               <tr>
-                <td colSpan={activeTab === 'O4B' ? 10 : 9} className="py-8 text-center text-slate-400">
+                <td colSpan={activeTab === 'O4B' ? 11 : 9} className="py-8 text-center text-slate-400">
                   No transactions found matching your criteria.
                 </td>
               </tr>
@@ -734,12 +808,14 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                       <div className={`whitespace-pre-wrap ${failClass(conformance, 'payeeName')}`} title={conformance.payeeName}>
                         {tx.payeeName}
                       </div>
-                      <div
-                        className={`text-[11px] font-normal ${failClass(conformance, 'payeeReference', 'text-slate-400')}`}
-                        title={conformance.payeeReference}
-                      >
-                        Ref: {tx.payeeReference || 'N/A'}
-                      </div>
+                      {activeTab !== 'O4B' && (
+                        <div
+                          className={`text-[11px] font-normal ${failClass(conformance, 'payeeReference', 'text-slate-400')}`}
+                          title={conformance.payeeReference}
+                        >
+                          Ref: {tx.payeeReference || 'N/A'}
+                        </div>
+                      )}
                       {conformanceIssues.length > 0 && (
                         <div className="mt-0.5 flex items-start gap-1 text-[10px] font-semibold text-red-700">
                           <AlertCircle className="w-3 h-3 mt-px shrink-0" />
@@ -759,6 +835,23 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                           <Merge className="w-3 h-3" />
                           {sourceRecordCount(tx)} records consolidated
                         </button>
+                      )}
+                      {tx.paidSeparately && tx.consolidationKey && (
+                        // Identical record currently paid on its own: switch back on to merge the group
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-300">
+                            <Merge className="w-3 h-3" />
+                            1 of {groupInfo.get(tx.consolidationKey)?.records ?? '?'} identical · paid separately
+                          </span>
+                          {onSetPaidSeparately && (
+                            <PayAsOneSwitch
+                              checked={false}
+                              disabled={groupInfo.get(tx.consolidationKey)?.locked}
+                              disabledReason={LOCKED_REASON}
+                              onChange={() => onSetPaidSeparately(tx.id, false)}
+                            />
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="py-2.5 px-3 font-mono text-slate-700">
@@ -808,6 +901,30 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                     >
                       {formatGBP(tx.amount)}
                     </td>
+                    {activeTab === 'O4B' && (
+                      <td className="py-2.5 px-3 font-mono" title={conformance.payeeReference}>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`select-all whitespace-pre ${failClass(conformance, 'payeeReference', 'text-slate-900')}`}>
+                            {tx.payeeReference || '—'}
+                          </span>
+                          {tx.payeeReference && (
+                            <button
+                              type="button"
+                              onClick={() => copyReference(tx.id, tx.payeeReference)}
+                              className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                              title="Copy payment reference"
+                              aria-label={`Copy payment reference for ${tx.payeeName}`}
+                            >
+                              {copiedRefId === tx.id ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                     <td className="py-2.5 px-3 text-center">
                       <select
                         aria-label={`Assigned rail for ${tx.payeeName}`}
@@ -852,10 +969,18 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                   {isExpanded && (
                     // Z-fold review panel: each source record is a fold, alternately offset, adding up to the payment
                     <tr id={`fold-${tx.id}`} className="bg-violet-50/40">
-                      <td colSpan={activeTab === 'O4B' ? 10 : 9} className="px-3 pb-3 pt-0">
+                      <td colSpan={activeTab === 'O4B' ? 11 : 9} className="px-3 pb-3 pt-0">
                         <div className="ml-10 border-l-2 border-violet-300 pl-3 pt-2 space-y-1">
-                          <div className="text-[11px] font-semibold text-violet-900">
-                            {sourceRecordCount(tx)} identical records consolidated into one payment
+                          <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold text-violet-900">
+                            <span>{sourceRecordCount(tx)} identical records consolidated into one payment</span>
+                            {onSetPaidSeparately && (
+                              <PayAsOneSwitch
+                                checked
+                                disabled={!!tx.consolidationKey && groupInfo.get(tx.consolidationKey)?.locked}
+                                disabledReason={LOCKED_REASON}
+                                onChange={() => onSetPaidSeparately(tx.id, true)}
+                              />
+                            )}
                           </div>
                           {tx.sourceRecords.map((r, i) => {
                             const rc = checkConformance(r);
@@ -907,6 +1032,14 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
               <span className="text-slate-300">·</span>
               <span className="text-red-700 font-bold font-sans" title="Highlighted rows: payee name spacing/characters, 6-digit sort code, 8-digit account, reference filled and ≤26 characters, amount ≤ £250,000">
                 {currentTabMetric.failing} payment{currentTabMetric.failing === 1 ? '' : 's'} failing checks
+              </span>
+            </>
+          )}
+          {currentTabMetric.stats.paidSeparately > 0 && (
+            <>
+              <span className="text-slate-300">·</span>
+              <span className="text-slate-600" title="Identical records switched to separate payments">
+                {currentTabMetric.stats.paidSeparately} identical records paid separately
               </span>
             </>
           )}

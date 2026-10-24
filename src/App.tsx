@@ -13,7 +13,12 @@ import {
 } from './types/payment';
 import { parsePaymentCsv, determineRailByLimits } from './utils/csvParser';
 import { calculateSummaries } from './utils/calculations';
-import { getConsolidationStats } from './utils/consolidation';
+import {
+  getConsolidationStats,
+  getGroupMembers,
+  splitConsolidatedPayment,
+  mergeConsolidationGroup,
+} from './utils/consolidation';
 import { Header } from './components/Header';
 import { SummaryTotals } from './components/SummaryTotals';
 import { SliderControls } from './components/SliderControls';
@@ -52,9 +57,6 @@ export default function App() {
   const [debtor, setDebtor] = useState<DebtorConfig>({
     ...DEFAULT_DEBTOR_CONFIG,
   });
-
-  // State: Merge identical records (payee, sort code, account number, reference) into one payment
-  const [consolidateIdentical, setConsolidateIdentical] = useState<boolean>(true);
 
   // State: Transactions & Raw CSV (Start with NO uploaded file)
   const [fileName, setFileName] = useState<string>('');
@@ -159,6 +161,26 @@ export default function App() {
     });
   };
 
+  // Pay a group of identical records as one payment (consolidated) or as separate payments.
+  // Payment ids change, so ticks on the affected payments are cleared.
+  const handleSetPaidSeparately = (txId: string, separately: boolean) => {
+    const tx = transactions.find((t) => t.id === txId);
+    if (!tx) return;
+    const affectedIds = getGroupMembers(transactions, tx).map((t) => t.id);
+    const railForAmount = (amount: number) => determineRailByLimits(amount, limits);
+    setTransactions((prev) =>
+      separately
+        ? splitConsolidatedPayment(prev, txId, railForAmount)
+        : mergeConsolidationGroup(prev, txId, railForAmount)
+    );
+    setSelectedTxIds((prev) => {
+      const next = new Set(prev);
+      affectedIds.forEach((id) => next.delete(id));
+      return next;
+    });
+    setIsOptimized(false);
+  };
+
   const handleBulkReassign = (ids: string[], targetRail: PaymentRail) => {
     const idSet = new Set(ids);
     setTransactions((prev) =>
@@ -254,20 +276,10 @@ export default function App() {
     setSelectedTxIds(new Set()); // Unselected by default!
     setCurrentO4bBatchNumber(1);
     setCommittedO4bBatches([]);
-    const parsed = parsePaymentCsv(content, limits, { consolidate: consolidateIdentical });
+    const parsed = parsePaymentCsv(content, limits);
     setTransactions(parsed);
   };
 
-  // Turning consolidation on/off re-imports the current CSV (payment ids change, so ticks and O4B batches reset)
-  const handleConsolidateChange = (value: boolean) => {
-    setConsolidateIdentical(value);
-    if (!rawCsvText) return;
-    setIsOptimized(false);
-    setSelectedTxIds(new Set());
-    setCurrentO4bBatchNumber(1);
-    setCommittedO4bBatches([]);
-    setTransactions(parsePaymentCsv(rawCsvText, limits, { consolidate: value }));
-  };
 
   // Apply optimization result
   const handleApplyOptimization = (
@@ -327,7 +339,6 @@ export default function App() {
         fileName={fileName}
         totalCount={transactions.length}
         recordCount={consolidationStats.records}
-        consolidationOff={!consolidateIdentical}
         onOpenUpload={() => fileInputRef.current?.click()}
         onOpenOptimize={() => {
           if (transactions.length > 0) {
@@ -466,6 +477,7 @@ export default function App() {
               onSelectAll={handleSelectAll}
               onDeselectAll={handleDeselectAll}
               onBulkReassign={handleBulkReassign}
+              onSetPaidSeparately={handleSetPaidSeparately}
               onOpenReconciliation={() => setIsReconciliationOpen(true)}
               currentO4bBatchNumber={currentO4bBatchNumber}
               onCommitO4bBatch={handleCommitO4bBatch}
@@ -525,8 +537,6 @@ export default function App() {
         onSaveFeeSchedule={setFeeSchedule}
         railTimeConfig={railTimeConfig}
         onSaveRailTimeConfig={setRailTimeConfig}
-        consolidateIdentical={consolidateIdentical}
-        onSaveConsolidateIdentical={handleConsolidateChange}
       />
 
       <CsvUploadModal

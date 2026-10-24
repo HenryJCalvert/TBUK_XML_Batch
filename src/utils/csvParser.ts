@@ -1,5 +1,5 @@
 import { PaymentTransaction, PaymentRail, SourcePaymentRecord, ThresholdLimits } from '../types/payment';
-import { consolidateRecords } from './consolidation';
+import { consolidateRecords, consolidationKey } from './consolidation';
 
 /**
  * Standard CSV line parser that handles quotes, escaped quotes, and commas inside fields.
@@ -129,6 +129,7 @@ export function parsePaymentCsv(csvText: string, limits: ThresholdLimits, option
     payeeName: group[0].payeeName,
     payeeReference: group[0].payeeReference,
     sourceRecords: group,
+    consolidationKey: group.length > 1 ? consolidationKey(group[0]) : undefined,
     assignedRail: determineRailByLimits(amount, limits),
     isManualOverride: false,
   }));
