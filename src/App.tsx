@@ -53,6 +53,9 @@ export default function App() {
     ...DEFAULT_DEBTOR_CONFIG,
   });
 
+  // State: Merge identical records (payee, sort code, account number, reference) into one payment
+  const [consolidateIdentical, setConsolidateIdentical] = useState<boolean>(true);
+
   // State: Transactions & Raw CSV (Start with NO uploaded file)
   const [fileName, setFileName] = useState<string>('');
   const [rawCsvText, setRawCsvText] = useState<string>('');
@@ -251,8 +254,19 @@ export default function App() {
     setSelectedTxIds(new Set()); // Unselected by default!
     setCurrentO4bBatchNumber(1);
     setCommittedO4bBatches([]);
-    const parsed = parsePaymentCsv(content, limits);
+    const parsed = parsePaymentCsv(content, limits, { consolidate: consolidateIdentical });
     setTransactions(parsed);
+  };
+
+  // Turning consolidation on/off re-imports the current CSV (payment ids change, so ticks and O4B batches reset)
+  const handleConsolidateChange = (value: boolean) => {
+    setConsolidateIdentical(value);
+    if (!rawCsvText) return;
+    setIsOptimized(false);
+    setSelectedTxIds(new Set());
+    setCurrentO4bBatchNumber(1);
+    setCommittedO4bBatches([]);
+    setTransactions(parsePaymentCsv(rawCsvText, limits, { consolidate: value }));
   };
 
   // Apply optimization result
@@ -313,6 +327,7 @@ export default function App() {
         fileName={fileName}
         totalCount={transactions.length}
         recordCount={consolidationStats.records}
+        consolidationOff={!consolidateIdentical}
         onOpenUpload={() => fileInputRef.current?.click()}
         onOpenOptimize={() => {
           if (transactions.length > 0) {
@@ -510,6 +525,8 @@ export default function App() {
         onSaveFeeSchedule={setFeeSchedule}
         railTimeConfig={railTimeConfig}
         onSaveRailTimeConfig={setRailTimeConfig}
+        consolidateIdentical={consolidateIdentical}
+        onSaveConsolidateIdentical={handleConsolidateChange}
       />
 
       <CsvUploadModal

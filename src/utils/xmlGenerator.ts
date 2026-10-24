@@ -14,6 +14,8 @@ export const LLOYDS_PAYEE_REFERENCE_MAX = 18;
 export const LLOYDS_DEBIT_REFERENCE_MAX = 18;
 export const LLOYDS_FPS_ADDITIONAL_REFERENCE_MAX = 26; // <Ustrd>; carries the payee reference unchanged
 export const ISO_END_TO_END_ID_MAX = 35;
+/** Payments above this are flagged for a Lloyds CBO limit check */
+export const LLOYDS_HIGH_VALUE_PENCE = 250000 * 100;
 /** Bacs requires at least 6 letters/digits in the payee reference */
 export const BACS_REFERENCE_MIN_ALPHANUMERIC = 6;
 
@@ -130,6 +132,9 @@ export function prepareLloydsPayment(
   const amountPence = Number.isFinite(tx.amount) ? toPence(tx.amount) : NaN;
   if (!Number.isFinite(amountPence) || amountPence <= 0) {
     add('error', 'amount', `Amount ${tx.amount} must be greater than £0.00`);
+  }
+  if (amountPence > LLOYDS_HIGH_VALUE_PENCE) {
+    add('warning', 'amount', `Amount is over £250,000; check it is within your Lloyds CBO payment limit`);
   }
 
   const payeeName = sanitizePayeeName(tx.payeeName);

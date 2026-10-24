@@ -110,7 +110,7 @@ export const SummaryTotals: React.FC<SummaryTotalsProps> = ({
           onClick={() => onFilterRail && onFilterRail('O4B')}
           className={`cursor-pointer transition rounded-xl p-4 border bg-white relative overflow-hidden ${
             activeFilter === 'O4B'
-              ? 'border-emerald-500 shadow-xs bg-emerald-50/20'
+              ? 'border-slate-800 shadow-xs bg-emerald-50/20'
               : 'border-slate-200 hover:border-slate-300 hover:shadow-xs'
           }`}
         >
@@ -168,7 +168,7 @@ export const SummaryTotals: React.FC<SummaryTotalsProps> = ({
           onClick={() => onFilterRail && onFilterRail('BACS')}
           className={`cursor-pointer transition rounded-xl p-4 border bg-white relative overflow-hidden ${
             activeFilter === 'BACS'
-              ? 'border-blue-500 shadow-xs bg-blue-50/20'
+              ? 'border-slate-800 shadow-xs bg-blue-50/20'
               : 'border-slate-200 hover:border-slate-300 hover:shadow-xs'
           }`}
         >
@@ -232,7 +232,7 @@ export const SummaryTotals: React.FC<SummaryTotalsProps> = ({
           onClick={() => onFilterRail && onFilterRail('FasterPay')}
           className={`cursor-pointer transition rounded-xl p-4 border bg-white relative overflow-hidden ${
             activeFilter === 'FasterPay'
-              ? 'border-red-500 shadow-xs bg-red-50/20'
+              ? 'border-slate-800 shadow-xs bg-red-50/20'
               : 'border-slate-200 hover:border-slate-300 hover:shadow-xs'
           }`}
         >

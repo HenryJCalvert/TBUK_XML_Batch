@@ -8,6 +8,7 @@ import {
 } from '../utils/bankLookup';
 import { generateO4bBatchCsv, downloadFile } from '../utils/xmlGenerator';
 import { getConsolidationStats, isConsolidated, sourceRecordCount } from '../utils/consolidation';
+import { checkConformance, checkPaymentConformance, conformanceMessages, ConformanceResult } from '../utils/conformance';
 import {
   Search,
   ArrowUpDown,
@@ -22,7 +23,13 @@ import {
   Download,
   ChevronRight,
   Merge,
+  AlertCircle,
 } from 'lucide-react';
+
+// Conformance failures: pink row, bold red value (with the reason on hover)
+const FAIL_TEXT = 'text-red-700 font-bold';
+const failClass = (result: ConformanceResult, field: keyof ConformanceResult, okClass = '') =>
+  result[field] ? FAIL_TEXT : okClass;
 
 interface BatchWindowViewProps {
   transactions: PaymentTransaction[];
@@ -87,6 +94,14 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
       minimumFractionDigits: 2,
     }).format(val);
 
+  // Conformance check per payment (and each record it was consolidated from)
+  const conformanceById = useMemo(() => {
+    const map = new Map<string, ConformanceResult>();
+    transactions.forEach((t) => map.set(t.id, checkPaymentConformance(t)));
+    return map;
+  }, [transactions]);
+  const failsConformance = (t: PaymentTransaction) => conformanceMessages(conformanceById.get(t.id) || {}).length > 0;
+
   // Compute records total and selected total for each rail
   const railMetrics = useMemo(() => {
     const calc = (rail?: PaymentRail) => {
@@ -102,7 +117,9 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
       const stats = getConsolidationStats(allInRail);
       const selStats = getConsolidationStats(selectedInRail);
 
-      return { count, amount, selCount, selAmount, stats, selStats };
+      const failing = allInRail.filter(failsConformance).length;
+
+      return { count, amount, selCount, selAmount, stats, selStats, failing };
     };
 
     return {
@@ -111,7 +128,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
       BACS: calc('BACS'),
       FasterPay: calc('FasterPay'),
     };
-  }, [transactions, selectedTxIds]);
+  }, [transactions, selectedTxIds, conformanceById]);
 
   // O4B specific calculations: Committed, Staged, and Payments to Go
   const o4bTransactions = useMemo(
@@ -232,6 +249,9 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                 {railMetrics.ALL.stats.recordsMerged > 0 && (
                   <span className="text-violet-700 font-semibold"> · {railMetrics.ALL.stats.recordsMerged} merged</span>
                 )}
+                {railMetrics.ALL.failing > 0 && (
+                  <span className="text-red-700 font-bold"> · {railMetrics.ALL.failing} failing</span>
+                )}
               </span>
               <span className={railMetrics.ALL.selCount > 0 ? 'text-emerald-700 font-semibold' : 'text-slate-400'}>
                 {railMetrics.ALL.selCount} selected
@@ -270,6 +290,9 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                 {railMetrics.O4B.count} payments
                 {railMetrics.O4B.stats.recordsMerged > 0 && (
                   <span className="text-violet-700 font-semibold"> · {railMetrics.O4B.stats.recordsMerged} merged</span>
+                )}
+                {railMetrics.O4B.failing > 0 && (
+                  <span className="text-red-700 font-bold"> · {railMetrics.O4B.failing} failing</span>
                 )}
               </span>
               <span className={railMetrics.O4B.selCount > 0 ? 'text-emerald-900 font-bold' : 'text-slate-400'}>
@@ -310,6 +333,9 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                 {railMetrics.BACS.stats.recordsMerged > 0 && (
                   <span className="text-violet-700 font-semibold"> · {railMetrics.BACS.stats.recordsMerged} merged</span>
                 )}
+                {railMetrics.BACS.failing > 0 && (
+                  <span className="text-red-700 font-bold"> · {railMetrics.BACS.failing} failing</span>
+                )}
               </span>
               <span className={railMetrics.BACS.selCount > 0 ? 'text-blue-900 font-bold' : 'text-slate-400'}>
                 {railMetrics.BACS.selCount} selected
@@ -348,6 +374,9 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                 {railMetrics.FasterPay.count} payments
                 {railMetrics.FasterPay.stats.recordsMerged > 0 && (
                   <span className="text-violet-700 font-semibold"> · {railMetrics.FasterPay.stats.recordsMerged} merged</span>
+                )}
+                {railMetrics.FasterPay.failing > 0 && (
+                  <span className="text-red-700 font-bold"> · {railMetrics.FasterPay.failing} failing</span>
                 )}
               </span>
               <span className={railMetrics.FasterPay.selCount > 0 ? 'text-red-900 font-bold' : 'text-slate-400'}>
@@ -610,14 +639,19 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                 const net = margin - fee;
                 const bankName = getBankNameFromSortCode(tx.sortCode);
                 const isO4bCommitted = tx.assignedRail === 'O4B' && tx.o4bBatchCommitted;
+                const conformance = conformanceById.get(tx.id) || {};
+                const conformanceIssues = conformanceMessages(conformance);
                 const consolidated = isConsolidated(tx);
                 const isExpanded = consolidated && expandedIds.has(tx.id);
 
                 return (
                   <Fragment key={tx.id}>
                   <tr
+                    title={conformanceIssues.length > 0 ? conformanceIssues.join('\n') : undefined}
                     className={`transition-colors group ${
-                      isSelected
+                      conformanceIssues.length > 0
+                        ? 'bg-rose-50 hover:bg-rose-100/70'
+                        : isSelected
                         ? 'bg-emerald-50/40'
                         : isO4bCommitted
                         ? 'bg-emerald-50/20'
@@ -697,10 +731,21 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                     )}
 
                     <td className="py-2.5 px-3 font-medium text-slate-900">
-                      <div>{tx.payeeName}</div>
-                      <div className="text-[11px] text-slate-400 font-normal">
+                      <div className={`whitespace-pre-wrap ${failClass(conformance, 'payeeName')}`} title={conformance.payeeName}>
+                        {tx.payeeName}
+                      </div>
+                      <div
+                        className={`text-[11px] font-normal ${failClass(conformance, 'payeeReference', 'text-slate-400')}`}
+                        title={conformance.payeeReference}
+                      >
                         Ref: {tx.payeeReference || 'N/A'}
                       </div>
+                      {conformanceIssues.length > 0 && (
+                        <div className="mt-0.5 flex items-start gap-1 text-[10px] font-semibold text-red-700">
+                          <AlertCircle className="w-3 h-3 mt-px shrink-0" />
+                          <span>{conformanceIssues.join(' · ')}</span>
+                        </div>
+                      )}
                       {consolidated && (
                         <button
                           type="button"
@@ -717,13 +762,17 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                       )}
                     </td>
                     <td className="py-2.5 px-3 font-mono text-slate-700">
-                      <div>{formatSortCode(tx.sortCode)}</div>
+                      <div className={failClass(conformance, 'sortCode')} title={conformance.sortCode}>
+                        {formatSortCode(tx.sortCode)}
+                      </div>
                       <div className="text-[10px] text-slate-400 font-sans">{bankName}</div>
                     </td>
                     <td className="py-2.5 px-3 font-mono text-slate-700">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {/* 8-digit value as exported; the raw value is shown only when it can't be converted */}
-                        <span>{normaliseAccountNumber(tx.accountNumber).value || tx.accountNumber}</span>
+                        <span className={failClass(conformance, 'accountNumber')} title={conformance.accountNumber}>
+                          {normaliseAccountNumber(tx.accountNumber).value || tx.accountNumber}
+                        </span>
                         {(() => {
                           // Show exactly what the Lloyds files will contain, or why the payment is blocked
                           const acc = normaliseAccountNumber(tx.accountNumber);
@@ -753,7 +802,10 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                         })()}
                       </div>
                     </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 tabular-nums">
+                    <td
+                      className={`py-2.5 px-3 text-right font-mono font-bold tabular-nums ${failClass(conformance, 'amount', 'text-slate-900')}`}
+                      title={conformance.amount}
+                    >
                       {formatGBP(tx.amount)}
                     </td>
                     <td className="py-2.5 px-3 text-center">
@@ -805,21 +857,27 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                           <div className="text-[11px] font-semibold text-violet-900">
                             {sourceRecordCount(tx)} identical records consolidated into one payment
                           </div>
-                          {tx.sourceRecords.map((r, i) => (
-                            <div
-                              key={r.rowNumber}
-                              className={`flex flex-wrap items-center gap-x-4 gap-y-0.5 px-2.5 py-1.5 rounded border border-violet-200 bg-white text-[11px] font-mono text-slate-700 shadow-2xs max-w-3xl ${
-                                i % 2 === 1 ? 'ml-6 -skew-x-3' : 'skew-x-3'
-                              }`}
-                            >
-                              <span className="text-violet-700 font-semibold">CSV row {r.rowNumber}</span>
-                              <span className="font-sans">{r.payeeName}</span>
-                              <span>{formatSortCode(r.sortCode)}</span>
-                              <span>{r.accountNumber}</span>
-                              <span className="font-sans">Ref: {r.payeeReference || 'N/A'}</span>
-                              <span className="ml-auto font-bold text-slate-900 tabular-nums">{formatGBP(r.amount)}</span>
-                            </div>
-                          ))}
+                          {tx.sourceRecords.map((r, i) => {
+                            const rc = checkConformance(r);
+                            delete rc.amount; // The £250k limit applies to the combined payment
+                            const recordIssues = conformanceMessages(rc);
+                            return (
+                              <div
+                                key={r.rowNumber}
+                                title={recordIssues.length > 0 ? recordIssues.join('\n') : undefined}
+                                className={`flex flex-wrap items-center gap-x-4 gap-y-0.5 px-2.5 py-1.5 rounded border text-[11px] font-mono text-slate-700 shadow-2xs max-w-3xl ${
+                                  recordIssues.length > 0 ? 'bg-rose-50 border-rose-300' : 'bg-white border-violet-200'
+                                } ${i % 2 === 1 ? 'ml-6 -skew-x-3' : 'skew-x-3'}`}
+                              >
+                                <span className="text-violet-700 font-semibold">CSV row {r.rowNumber}</span>
+                                <span className={`font-sans whitespace-pre-wrap ${failClass(rc, 'payeeName')}`}>{r.payeeName}</span>
+                                <span className={failClass(rc, 'sortCode')}>{formatSortCode(r.sortCode)}</span>
+                                <span className={failClass(rc, 'accountNumber')}>{r.accountNumber}</span>
+                                <span className={`font-sans ${failClass(rc, 'payeeReference')}`}>Ref: {r.payeeReference || 'N/A'}</span>
+                                <span className="ml-auto font-bold text-slate-900 tabular-nums">{formatGBP(r.amount)}</span>
+                              </div>
+                            );
+                          })}
                           <div className="flex items-center justify-between max-w-3xl px-2.5 pt-1 text-[11px] font-mono border-t border-violet-200">
                             <span className="text-violet-900 font-sans font-semibold">
                               Exported as 1 payment ({sourceRecordCount(tx) - 1} fewer, saving {formatGBP(fee * (sourceRecordCount(tx) - 1))} in fees)
@@ -844,6 +902,14 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
           <span className="font-semibold text-slate-800 font-sans">
             Listing all {sortedTransactions.length} payments
           </span>
+          {currentTabMetric.failing > 0 && (
+            <>
+              <span className="text-slate-300">·</span>
+              <span className="text-red-700 font-bold font-sans" title="Highlighted rows: payee name spacing/characters, 6-digit sort code, 8-digit account, reference filled and ≤26 characters, amount ≤ £250,000">
+                {currentTabMetric.failing} payment{currentTabMetric.failing === 1 ? '' : 's'} failing checks
+              </span>
+            </>
+          )}
           {currentTabMetric.stats.recordsMerged > 0 && (
             <>
               <span className="text-slate-300">·</span>
