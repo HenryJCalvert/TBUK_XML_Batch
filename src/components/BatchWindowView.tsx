@@ -670,7 +670,8 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                     </td>
                     <td className="py-2.5 px-3 font-mono text-slate-700">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span>{tx.accountNumber}</span>
+                        {/* 8-digit value as exported; the raw value is shown only when it can't be converted */}
+                        <span>{normaliseAccountNumber(tx.accountNumber).value || tx.accountNumber}</span>
                         {(() => {
                           // Show exactly what the Lloyds files will contain, or why the payment is blocked
                           const acc = normaliseAccountNumber(tx.accountNumber);
@@ -692,7 +693,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                                 className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-sans font-semibold bg-amber-100 text-amber-800 border border-amber-300"
                                 title={acc.message}
                               >
-                                {acc.digitCount}d ➔ {acc.value}
+                                from {acc.raw}
                               </span>
                             );
                           }
