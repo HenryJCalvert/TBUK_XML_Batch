@@ -114,7 +114,7 @@ export const CsvUploadModal: React.FC<CsvUploadModalProps> = ({
                 or click to browse from your computer
               </div>
               <div className="text-[11px] text-slate-400 mt-3 font-mono">
-                Supported columns: BANKCODE, ACCOUNTNO, AMOUNT, TITLE, LODGEMENTREF
+                Columns: SORT CODE, ACCOUNT NUMBER, AMOUNT, PAYEE NAME, REFERENCE (TryBooking BANKCODE / ACCOUNTNO / TITLE / LODGEMENTREF also accepted)
               </div>
             </label>
           </div>

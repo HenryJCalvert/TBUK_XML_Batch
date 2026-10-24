@@ -47,7 +47,7 @@ export default function App() {
     ...DEFAULT_RAIL_TIME_CONFIG,
   });
 
-  // State: Debtor settings (Default Sort Code: 30-14-40, Account: 14438260, Entity: TRYBOOKING UK LIMITED, Ref: SUPP)
+  // State: Debtor settings (Default Sort Code: 30-14-40, Account: 14438260, Entity: TRYBOOKING UK LIMITED, Ref: TRYBOOKING PAYOUTS)
   const [debtor, setDebtor] = useState<DebtorConfig>({
     ...DEFAULT_DEBTOR_CONFIG,
   });

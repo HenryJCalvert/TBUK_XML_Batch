@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   DebtorConfig,
   FeeSchedule,
@@ -6,6 +6,7 @@ import {
   RailTimeConfig,
   DEFAULT_RAIL_TIME_CONFIG,
 } from '../types/payment';
+import { calculateBacsEarliestExecutionDate } from '../utils/ukBankingCalendar';
 import { Settings, Save, X, RotateCcw, CreditCard, Clock } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -40,7 +41,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     ...(railTimeConfig || DEFAULT_RAIL_TIME_CONFIG),
   });
 
+  // Re-sync the form each time the modal opens, so it reflects resets and changes made elsewhere
+  useEffect(() => {
+    if (!isOpen) return;
+    setForm({ ...debtor });
+    setMargin(profitMarginPercent);
+    setFees({ ...feeSchedule });
+    setTimes({ ...(railTimeConfig || DEFAULT_RAIL_TIME_CONFIG) });
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!isOpen) return null;
+
+  const earliestBacsDate = calculateBacsEarliestExecutionDate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,6 +112,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 value={form.debtorSortCode}
                 onChange={(e) => setForm({ ...form, debtorSortCode: e.target.value })}
                 placeholder="30-14-40"
+                pattern="\d{2}-?\d{2}-?\d{2}"
+                title="6-digit sort code, e.g. 30-14-40"
                 className="w-full px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-lg focus:outline-slate-900"
                 required
               />
@@ -115,9 +129,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <input
                 id="debtor-account-no"
                 type="text"
-                value={form.debtorAccountNo}
-                onChange={(e) => setForm({ ...form, debtorAccountNo: e.target.value })}
+                value={form.debtorAccountNumber}
+                onChange={(e) => setForm({ ...form, debtorAccountNumber: e.target.value })}
                 placeholder="14438260"
+                pattern="\d{8}"
+                inputMode="numeric"
+                title="8-digit account number"
                 className="w-full px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-lg focus:outline-slate-900"
                 required
               />
@@ -156,11 +173,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 value={form.categoryPurpose}
                 onChange={(e) => setForm({ ...form, categoryPurpose: e.target.value })}
                 placeholder="TRYBOOKING PAYOUTS"
+                maxLength={18}
                 className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-slate-900 font-mono font-bold text-slate-900"
                 required
               />
               <p className="text-[10px] text-slate-400 mt-0.5">
-                Free-text reference showing on debtor bank statement (e.g. TRYBOOKING PAYOUTS)
+                Reference on our own statement, max 18 characters (e.g. TRYBOOKING PAYOUTS)
               </p>
             </div>
 
@@ -169,7 +187,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 htmlFor="execution-date"
                 className="block text-xs font-semibold text-slate-700 mb-1"
               >
-                Execution Date (ReqdExctnDt)
+                FPS Payment Date (ReqdExctnDt)
               </label>
               <input
                 id="execution-date"
@@ -179,6 +197,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 className="w-full px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-lg focus:outline-slate-900"
                 required
               />
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Past dates are moved to today when exporting
+              </p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="bacs-execution-date"
+                className="block text-xs font-semibold text-slate-700 mb-1"
+              >
+                BACS Payment Date (optional)
+              </label>
+              <input
+                id="bacs-execution-date"
+                type="date"
+                value={form.bacsExecutionDate || ''}
+                min={earliestBacsDate}
+                onChange={(e) => setForm({ ...form, bacsExecutionDate: e.target.value || undefined })}
+                className="w-full px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-lg focus:outline-slate-900"
+              />
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Blank uses the earliest date ({earliestBacsDate}); 3 UK banking days, skipping weekends and bank holidays
+              </p>
             </div>
           </div>
 

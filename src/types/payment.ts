@@ -1,17 +1,21 @@
+import { todayInLondon } from '../utils/ukBankingCalendar';
+
 export type PaymentRail = 'O4B' | 'BACS' | 'FasterPay';
 
+/**
+ * A single UK credit transfer to a payee.
+ *
+ * Sort code and account number are kept exactly as imported so the operator can
+ * see what the source file contained. Use normaliseSortCode / normaliseAccountNumber
+ * (utils/bankLookup) to get the 6- and 8-digit values that go into Lloyds files.
+ */
 export interface PaymentTransaction {
   id: string;
-  bankCode: string; // e.g. "013099" (Sort code)
-  accountNo: string; // e.g. "98679872"
-  indicator: string; // e.g. ""
-  transactionCode: string; // e.g. "50"
-  amount: number; // e.g. 402.00
-  title: string; // Beneficiary name
-  lodgementRef: string; // Beneficiary reference
-  bookwanaBankCode: string; // Originator bank code
-  bookwanaAccountNo: string; // Originator account no
-  remitterName: string; // Originator name
+  sortCode: string; // Payee sort code as imported, e.g. "013099" or "01-30-99"
+  accountNumber: string; // Payee account number as imported, e.g. "98679872"
+  amount: number; // GBP, e.g. 402.00
+  payeeName: string; // Beneficiary (payee) account name
+  payeeReference: string; // Reference shown on the payee's statement (max 18 chars for BACS)
   assignedRail: PaymentRail;
   isManualOverride?: boolean;
   o4bBatchNumber?: number; // e.g. 1, 2, 3...
@@ -100,25 +104,24 @@ export interface ProcessingTimeSummary {
 
 export interface DebtorConfig {
   debtorSortCode: string; // e.g. "30-14-40"
-  debtorAccountNo: string; // e.g. "14438260"
+  debtorAccountNumber: string; // e.g. "14438260"
   debtorName: string; // "TRYBOOKING UK LIMITED"
-  remitterName?: string;
-  categoryPurpose: string; // "TRYBOOKING PAYOUTS"
+  categoryPurpose: string; // Debit account reference shown on our own statement, e.g. "TRYBOOKING PAYOUTS"
   messageIdPrefix: string; // "COMMERCIAL BANKING ONLINE"
   paymentInfoId: string; // "1"
-  executionDate: string; // YYYY-MM-DD (e.g. for FPS instant clearing)
-  bacsExecutionDate?: string; // YYYY-MM-DD (min +3 working days for BACS clearing)
+  executionDate: string; // YYYY-MM-DD requested FPS date; never earlier than today (UK time)
+  bacsExecutionDate?: string; // YYYY-MM-DD requested BACS date; never earlier than the BACS minimum
 }
 
 export const DEFAULT_DEBTOR_CONFIG: DebtorConfig = {
   debtorSortCode: '30-14-40',
-  debtorAccountNo: '14438260',
+  debtorAccountNumber: '14438260',
   debtorName: 'TRYBOOKING UK LIMITED',
-  remitterName: 'TRYBOOKING UK LIMITED',
   categoryPurpose: 'TRYBOOKING PAYOUTS',
   messageIdPrefix: 'COMMERCIAL BANKING ONLINE',
   paymentInfoId: '1',
-  executionDate: new Date().toISOString().split('T')[0],
+  // Resolved to today's UK date when the app starts; the export re-checks it against the current date
+  executionDate: todayInLondon(),
 };
 
 export interface RailSummary {

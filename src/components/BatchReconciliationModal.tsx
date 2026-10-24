@@ -1,6 +1,17 @@
 import React from 'react';
 import { PaymentTransaction, DebtorConfig, FeeSchedule, DEFAULT_FEE_SCHEDULE } from '../types/payment';
-import { downloadFile } from '../utils/xmlGenerator';
+import {
+  downloadFile,
+  toPence,
+  getLloydsExecutionDates,
+  validateLloydsBatch,
+  LloydsBatchValidation,
+} from '../utils/xmlGenerator';
+import { normaliseSortCode, normaliseAccountNumber, formatLloydsDebitAccount } from '../utils/bankLookup';
+
+// Reconciliation shows the 6/8-digit values sent to Lloyds; unconvertible values are shown as imported
+const exportSortCode = (tx: PaymentTransaction) => normaliseSortCode(tx.sortCode).value || tx.sortCode;
+const exportAccountNumber = (tx: PaymentTransaction) => normaliseAccountNumber(tx.accountNumber).value || tx.accountNumber;
 import {
   CheckCircle2,
   ShieldCheck,
@@ -46,28 +57,40 @@ export const BatchReconciliationModal: React.FC<BatchReconciliationModalProps> =
       minimumFractionDigits: 2,
     }).format(val);
 
+  // Totals are added in whole pence so the variance check isn't thrown off by floating point
+  const sumGbp = (txs: PaymentTransaction[]) => txs.reduce((s, t) => s + toPence(t.amount), 0) / 100;
+
   // Source total
   const totalSourceCount = transactions.length;
-  const totalSourceAmount = transactions.reduce((s, t) => s + t.amount, 0);
+  const totalSourceAmount = sumGbp(transactions);
 
-  // Active selected transactions (for BACS & FPS, only selected items are exported)
-  const isSubsetSelection = selectedTxIds.size > 0 && selectedTxIds.size < transactions.length;
-  const selectedTxs = isSubsetSelection
-    ? transactions.filter((t) => selectedTxIds.has(t.id))
-    : transactions;
-  const excludedTxs = isSubsetSelection
-    ? transactions.filter((t) => !selectedTxIds.has(t.id))
-    : [];
+  // Same rule as the export: only ticked rows are exported (plus O4B rows already committed to a batch)
+  const isIncluded = (t: PaymentTransaction) =>
+    selectedTxIds.has(t.id) || (t.assignedRail === 'O4B' && !!t.o4bBatchCommitted);
+  const selectedTxs = transactions.filter(isIncluded);
+  const excludedTxs = transactions.filter((t) => !isIncluded(t));
 
   // Tiers among active
   const o4bTxs = selectedTxs.filter((t) => t.assignedRail === 'O4B');
   const bacsTxs = selectedTxs.filter((t) => t.assignedRail === 'BACS');
   const fpsTxs = selectedTxs.filter((t) => t.assignedRail === 'FasterPay');
 
-  const o4bAmount = o4bTxs.reduce((s, t) => s + t.amount, 0);
-  const bacsAmount = bacsTxs.reduce((s, t) => s + t.amount, 0);
-  const fpsAmount = fpsTxs.reduce((s, t) => s + t.amount, 0);
-  const excludedAmount = excludedTxs.reduce((s, t) => s + t.amount, 0);
+  const o4bAmount = sumGbp(o4bTxs);
+  const bacsAmount = sumGbp(bacsTxs);
+  const fpsAmount = sumGbp(fpsTxs);
+  const excludedAmount = sumGbp(excludedTxs);
+
+  // Lloyds validation status and dates, identical to what the export window will produce
+  const dates = getLloydsExecutionDates(debtor);
+  const bacsBatch = validateLloydsBatch('BACS', bacsTxs, debtor, dates);
+  const fpsBatch = validateLloydsBatch('FasterPay', fpsTxs, debtor, dates);
+  const batchStatus = (batch: LloydsBatchValidation, label: string) =>
+    batch.payments.length === 0
+      ? 'Nothing to export'
+      : batch.hasErrors
+      ? `Blocked: ${batch.issues.filter((i) => i.level === 'error').length} error(s)`
+      : `Ready for Lloyds ${label} XML`;
+  const debitAccount = formatLloydsDebitAccount(debtor.debtorSortCode, debtor.debtorAccountNumber);
 
   const o4bFees = o4bTxs.length * fees.O4B;
   const bacsFees = bacsTxs.length * fees.BACS;
@@ -76,20 +99,21 @@ export const BatchReconciliationModal: React.FC<BatchReconciliationModalProps> =
 
   const activeBatchTotal = o4bAmount + bacsAmount + fpsAmount;
   const totalAccountedAmount = activeBatchTotal + excludedAmount;
-  const amountVariance = Math.abs(totalSourceAmount - totalAccountedAmount);
+  const amountVariance = Math.abs(Math.round(totalSourceAmount * 100) - Math.round(totalAccountedAmount * 100)) / 100;
   const countVariance = totalSourceCount - (selectedTxs.length + excludedTxs.length);
 
-  const isBalanced = amountVariance < 0.001 && countVariance === 0;
+  const isBalanced = amountVariance === 0 && countVariance === 0;
 
   // Generate and download the Final Reconciliation CSV Audit Report
   const handleExportReconciliationCsv = () => {
     const lines: string[] = [];
-    const dateStr = debtor.executionDate.replace(/-/g, '');
+    const dateStr = dates.fps.date.replace(/-/g, '');
     const marginMult = profitMarginPercent / 100;
 
     lines.push(`"FINAL PAYMENT BATCH EXPORT RECONCILIATION REPORT"`);
-    lines.push(`"Execution Date","${debtor.executionDate}"`);
-    lines.push(`"Debtor Account","${debtor.debtorSortCode}-${debtor.debtorAccountNo}"`);
+    lines.push(`"FPS Execution Date","${dates.fps.date}"`);
+    lines.push(`"BACS Execution Date","${dates.bacs.date}"`);
+    lines.push(`"Debtor Account","${debitAccount}"`);
     lines.push(`"Debtor Entity","${debtor.debtorName.replace(/"/g, '""')}"`);
     lines.push(`"Generated At","${new Date().toISOString()}"`);
     lines.push(`"Profit Margin Basis","${profitMarginPercent.toFixed(3)}%"`);
@@ -101,10 +125,10 @@ export const BatchReconciliationModal: React.FC<BatchReconciliationModalProps> =
       `"O4B (Open Banking) Batched","${o4bTxs.length}","${o4bAmount.toFixed(2)}","${o4bFees.toFixed(2)}","${(o4bAmount * marginMult - o4bFees).toFixed(2)}","Committed / Active"`
     );
     lines.push(
-      `"BACS Selected for Export","${bacsTxs.length}","${bacsAmount.toFixed(2)}","${bacsFees.toFixed(2)}","${(bacsAmount * marginMult - bacsFees).toFixed(2)}","Ready for Lloyds BACS XML"`
+      `"BACS Selected for Export","${bacsTxs.length}","${bacsAmount.toFixed(2)}","${bacsFees.toFixed(2)}","${(bacsAmount * marginMult - bacsFees).toFixed(2)}","${batchStatus(bacsBatch, 'BACS')}"`
     );
     lines.push(
-      `"FPS Selected for Export","${fpsTxs.length}","${fpsAmount.toFixed(2)}","${fpsFees.toFixed(2)}","${(fpsAmount * marginMult - fpsFees).toFixed(2)}","Ready for Lloyds FPS XML"`
+      `"FPS Selected for Export","${fpsTxs.length}","${fpsAmount.toFixed(2)}","${fpsFees.toFixed(2)}","${(fpsAmount * marginMult - fpsFees).toFixed(2)}","${batchStatus(fpsBatch, 'FPS')}"`
     );
     if (excludedTxs.length > 0) {
       lines.push(
@@ -112,13 +136,13 @@ export const BatchReconciliationModal: React.FC<BatchReconciliationModalProps> =
       );
     }
     lines.push(
-      `"TOTAL RECONCILED","${totalSourceCount}","${totalSourceAmount.toFixed(2)}","${totalBatchFees.toFixed(2)}","${(activeBatchTotal * marginMult - totalBatchFees).toFixed(2)}","Zero Variance Verified"`
+      `"TOTAL RECONCILED","${totalSourceCount}","${totalSourceAmount.toFixed(2)}","${totalBatchFees.toFixed(2)}","${(activeBatchTotal * marginMult - totalBatchFees).toFixed(2)}","${isBalanced ? 'Zero Variance Verified' : `Variance: ${countVariance} record(s), GBP ${amountVariance.toFixed(2)}`}"`
     );
     lines.push(``);
 
     lines.push(`"DETAILED TRANSACTION AUDIT RECORDS"`);
     lines.push(
-      `"GROUP","STATUS","RAIL","BATCH_NO","FEE_GBP","MARGIN_GBP","NET_GBP","RECORD_ID","BENEFICIARY_NAME","SORT_CODE","ACCOUNT_NO","AMOUNT_GBP","LODGEMENT_REF"`
+      `"GROUP","STATUS","RAIL","BATCH_NO","FEE_GBP","MARGIN_GBP","NET_GBP","RECORD_ID","PAYEE_NAME","SORT_CODE","ACCOUNT_NUMBER","AMOUNT_GBP","PAYEE_REFERENCE"`
     );
 
     // Group 1: O4B
@@ -145,7 +169,7 @@ export const BatchReconciliationModal: React.FC<BatchReconciliationModalProps> =
         const margin = tx.amount * marginMult;
         const net = margin - fee;
         lines.push(
-          `"${group}","${status}","O4B","${batchNo}","${fee.toFixed(2)}","${margin.toFixed(2)}","${net.toFixed(2)}","${tx.id}","${tx.title.replace(/"/g, '""')}","${tx.bankCode}","${tx.accountNo}","${tx.amount.toFixed(2)}","${(tx.lodgementRef || '').replace(/"/g, '""')}"`
+          `"${group}","${status}","O4B","${batchNo}","${fee.toFixed(2)}","${margin.toFixed(2)}","${net.toFixed(2)}","${tx.id}","${tx.payeeName.replace(/"/g, '""')}","${exportSortCode(tx)}","${exportAccountNumber(tx)}","${tx.amount.toFixed(2)}","${(tx.payeeReference || '').replace(/"/g, '""')}"`
         );
       });
 
@@ -161,7 +185,7 @@ export const BatchReconciliationModal: React.FC<BatchReconciliationModalProps> =
         const margin = tx.amount * marginMult;
         const net = margin - fee;
         lines.push(
-          `"${group}","${status}","BACS","${batchNo}","${fee.toFixed(2)}","${margin.toFixed(2)}","${net.toFixed(2)}","${tx.id}","${tx.title.replace(/"/g, '""')}","${tx.bankCode}","${tx.accountNo}","${tx.amount.toFixed(2)}","${(tx.lodgementRef || '').replace(/"/g, '""')}"`
+          `"${group}","${status}","BACS","${batchNo}","${fee.toFixed(2)}","${margin.toFixed(2)}","${net.toFixed(2)}","${tx.id}","${tx.payeeName.replace(/"/g, '""')}","${exportSortCode(tx)}","${exportAccountNumber(tx)}","${tx.amount.toFixed(2)}","${(tx.payeeReference || '').replace(/"/g, '""')}"`
         );
       });
 
@@ -177,7 +201,7 @@ export const BatchReconciliationModal: React.FC<BatchReconciliationModalProps> =
         const margin = tx.amount * marginMult;
         const net = margin - fee;
         lines.push(
-          `"${group}","${status}","FPS","${batchNo}","${fee.toFixed(2)}","${margin.toFixed(2)}","${net.toFixed(2)}","${tx.id}","${tx.title.replace(/"/g, '""')}","${tx.bankCode}","${tx.accountNo}","${tx.amount.toFixed(2)}","${(tx.lodgementRef || '').replace(/"/g, '""')}"`
+          `"${group}","${status}","FPS","${batchNo}","${fee.toFixed(2)}","${margin.toFixed(2)}","${net.toFixed(2)}","${tx.id}","${tx.payeeName.replace(/"/g, '""')}","${exportSortCode(tx)}","${exportAccountNumber(tx)}","${tx.amount.toFixed(2)}","${(tx.payeeReference || '').replace(/"/g, '""')}"`
         );
       });
 
@@ -222,13 +246,15 @@ export const BatchReconciliationModal: React.FC<BatchReconciliationModalProps> =
               <div className="flex items-center space-x-1.5">
                 <Building2 className="w-3.5 h-3.5 text-slate-400" />
                 <span className="font-semibold text-slate-800">{debtor.debtorName}</span>
-                <span className="font-mono text-slate-500">({debtor.debtorSortCode}-{debtor.debtorAccountNo})</span>
+                <span className="font-mono text-slate-500">({debitAccount})</span>
               </div>
             </div>
             <div className="flex items-center space-x-1.5">
               <Calendar className="w-3.5 h-3.5 text-slate-400" />
               <span>Execution Date:</span>
-              <span className="font-mono font-semibold text-slate-800">{debtor.executionDate}</span>
+              <span className="font-mono font-semibold text-slate-800">
+                FPS {dates.fps.date} · BACS {dates.bacs.date}
+              </span>
             </div>
           </div>
 

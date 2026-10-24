@@ -3,8 +3,8 @@ import { PaymentTransaction, PaymentRail, ThresholdLimits, O4bBatchInfo, FeeSche
 import {
   formatSortCode,
   getBankNameFromSortCode,
-  cleanAccountNoForXml,
-  validateUkAccountNo,
+  normaliseSortCode,
+  normaliseAccountNumber,
 } from '../utils/bankLookup';
 import { generateO4bBatchCsv, downloadFile } from '../utils/xmlGenerator';
 import {
@@ -65,7 +65,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
 }) => {
   const fees: FeeSchedule = feeSchedule || DEFAULT_FEE_SCHEDULE;
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortField, setSortField] = useState<'amount' | 'title' | 'bankCode'>('amount');
+  const [sortField, setSortField] = useState<'amount' | 'payeeName' | 'sortCode'>('amount');
   const [sortAsc, setSortAsc] = useState(false);
 
   const formatGBP = (val: number) =>
@@ -128,10 +128,10 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
       // Filter by search query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
-        const matchesTitle = tx.title.toLowerCase().includes(query);
-        const matchesSort = tx.bankCode.includes(query) || formatSortCode(tx.bankCode).includes(query);
-        const matchesAccount = tx.accountNo.includes(query);
-        const matchesRef = tx.lodgementRef.toLowerCase().includes(query);
+        const matchesTitle = tx.payeeName.toLowerCase().includes(query);
+        const matchesSort = tx.sortCode.includes(query) || formatSortCode(tx.sortCode).includes(query);
+        const matchesAccount = tx.accountNumber.includes(query);
+        const matchesRef = tx.payeeReference.toLowerCase().includes(query);
         return matchesTitle || matchesSort || matchesAccount || matchesRef;
       }
       return true;
@@ -144,16 +144,16 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
       let result = 0;
       if (sortField === 'amount') {
         result = a.amount - b.amount;
-      } else if (sortField === 'title') {
-        result = a.title.localeCompare(b.title);
-      } else if (sortField === 'bankCode') {
-        result = a.bankCode.localeCompare(b.bankCode);
+      } else if (sortField === 'payeeName') {
+        result = a.payeeName.localeCompare(b.payeeName);
+      } else if (sortField === 'sortCode') {
+        result = a.sortCode.localeCompare(b.sortCode);
       }
       return sortAsc ? result : -result;
     });
   }, [filteredTransactions, sortField, sortAsc]);
 
-  const handleSort = (field: 'amount' | 'title' | 'bankCode') => {
+  const handleSort = (field: 'amount' | 'payeeName' | 'sortCode') => {
     if (sortField === field) {
       setSortAsc(!sortAsc);
     } else {
@@ -481,7 +481,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search beneficiary, sort code..."
+              placeholder="Search payee, sort code..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-md bg-white text-slate-900 focus:outline-slate-900 placeholder:text-slate-400"
@@ -526,16 +526,16 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                 <th className="py-2.5 px-3 text-center bg-slate-50">Batch Status</th>
               )}
               <th
-                onClick={() => handleSort('title')}
+                onClick={() => handleSort('payeeName')}
                 className="py-2.5 px-3 cursor-pointer hover:text-slate-900 bg-slate-50"
               >
                 <div className="flex items-center space-x-1">
-                  <span>Beneficiary Name &amp; Reference</span>
+                  <span>Payee Name &amp; Reference</span>
                   <ArrowUpDown className="w-3 h-3 text-slate-400" />
                 </div>
               </th>
               <th
-                onClick={() => handleSort('bankCode')}
+                onClick={() => handleSort('sortCode')}
                 className="py-2.5 px-3 cursor-pointer hover:text-slate-900 bg-slate-50"
               >
                 <div className="flex items-center space-x-1">
@@ -543,7 +543,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                   <ArrowUpDown className="w-3 h-3 text-slate-400" />
                 </div>
               </th>
-              <th className="py-2.5 px-3 bg-slate-50">Account No</th>
+              <th className="py-2.5 px-3 bg-slate-50">Account Number</th>
               <th
                 onClick={() => handleSort('amount')}
                 className="py-2.5 px-3 text-right cursor-pointer hover:text-slate-900 bg-slate-50"
@@ -572,7 +572,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                 const fee = fees[tx.assignedRail];
                 const margin = tx.amount * (profitMarginPercent / 100);
                 const net = margin - fee;
-                const bankName = getBankNameFromSortCode(tx.bankCode);
+                const bankName = getBankNameFromSortCode(tx.sortCode);
                 const isO4bCommitted = tx.assignedRail === 'O4B' && tx.o4bBatchCommitted;
 
                 return (
@@ -598,7 +598,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                             type="checkbox"
                             checked={isSelected}
                             disabled
-                            aria-label={`Selection state for ${tx.title}`}
+                            aria-label={`Selection state for ${tx.payeeName}`}
                             className="w-4 h-4 text-emerald-600 rounded border-slate-300 opacity-60 cursor-not-allowed"
                             title={isSelected ? 'Selected in rail tab' : 'Unselected'}
                           />
@@ -632,7 +632,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                       ) : (
                         <input
                           type="checkbox"
-                          aria-label={`Select transaction for ${tx.title}`}
+                          aria-label={`Select transaction for ${tx.payeeName}`}
                           checked={isSelected}
                           onChange={() => onToggleSelect(tx.id)}
                           className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
@@ -659,27 +659,40 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                     )}
 
                     <td className="py-2.5 px-3 font-medium text-slate-900">
-                      <div>{tx.title}</div>
+                      <div>{tx.payeeName}</div>
                       <div className="text-[11px] text-slate-400 font-normal">
-                        Ref: {tx.lodgementRef || 'N/A'}
+                        Ref: {tx.payeeReference || 'N/A'}
                       </div>
                     </td>
                     <td className="py-2.5 px-3 font-mono text-slate-700">
-                      <div>{formatSortCode(tx.bankCode)}</div>
+                      <div>{formatSortCode(tx.sortCode)}</div>
                       <div className="text-[10px] text-slate-400 font-sans">{bankName}</div>
                     </td>
                     <td className="py-2.5 px-3 font-mono text-slate-700">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span>{tx.accountNo}</span>
+                        <span>{tx.accountNumber}</span>
                         {(() => {
-                          const val = validateUkAccountNo(tx.accountNo);
-                          if (!val.isValid) {
+                          // Show exactly what the Lloyds files will contain, or why the payment is blocked
+                          const acc = normaliseAccountNumber(tx.accountNumber);
+                          const sort = normaliseSortCode(tx.sortCode);
+                          const problem = [sort, acc].find((d) => d.status === 'invalid');
+                          if (problem) {
+                            return (
+                              <span
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-sans font-semibold bg-red-100 text-red-800 border border-red-300"
+                                title={`${problem.message}. This payment will block the Lloyds BACS/FPS export until corrected.`}
+                              >
+                                Invalid
+                              </span>
+                            );
+                          }
+                          if (acc.status === 'converted') {
                             return (
                               <span
                                 className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-sans font-semibold bg-amber-100 text-amber-800 border border-amber-300"
-                                title={`UK bank accounts are 8 digits. Auto-cleansed from ${val.rawDigitsCount} digits to ${val.cleaned} for Lloyds ISO 20022 XML export.`}
+                                title={acc.message}
                               >
-                                {val.rawDigitsCount}d ➔ {val.cleaned}
+                                {acc.digitCount}d ➔ {acc.value}
                               </span>
                             );
                           }
@@ -692,7 +705,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                     </td>
                     <td className="py-2.5 px-3 text-center">
                       <select
-                        aria-label={`Assigned rail for ${tx.title}`}
+                        aria-label={`Assigned rail for ${tx.payeeName}`}
                         value={tx.assignedRail}
                         onChange={(e) => onOverrideRail(tx.id, e.target.value as PaymentRail)}
                         className={`text-xs font-semibold py-1 px-2 rounded border transition cursor-pointer ${
