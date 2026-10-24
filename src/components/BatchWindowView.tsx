@@ -734,7 +734,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
         <table className="w-full text-left border-collapse">
           <thead className="sticky top-0 z-10 bg-slate-50 shadow-2xs">
             <tr className="border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              <th className="py-2.5 px-3 w-12 text-center bg-slate-50">
+              <th className="whitespace-nowrap py-2.5 px-2 xl:px-3 w-12 text-center bg-slate-50">
                 {activeTab === 'O4B' ? (
                   <span title={`Tick to stage into Batch #${currentO4bBatchNumber}`}>Batch</span>
                 ) : activeTab === 'ALL' ? (
@@ -753,11 +753,11 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                 )}
               </th>
               {activeTab === 'O4B' && (
-                <th className="py-2.5 px-3 text-center bg-slate-50">Batch Status</th>
+                <th className="whitespace-nowrap py-2.5 px-2 xl:px-3 text-center bg-slate-50">Status</th>
               )}
               <th
                 onClick={() => handleSort('payeeName')}
-                className="py-2.5 px-3 cursor-pointer hover:text-slate-900 bg-slate-50"
+                className="whitespace-nowrap py-2.5 px-2 xl:px-3 cursor-pointer hover:text-slate-900 bg-slate-50"
               >
                 <div className="flex items-center space-x-1">
                   <span>{activeTab === 'O4B' ? 'Payee Name' : <>Payee Name &amp; Reference</>}</span>
@@ -766,30 +766,30 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
               </th>
               <th
                 onClick={() => handleSort('sortCode')}
-                className="py-2.5 px-3 cursor-pointer hover:text-slate-900 bg-slate-50"
+                className="whitespace-nowrap py-2.5 px-2 xl:px-3 cursor-pointer hover:text-slate-900 bg-slate-50"
               >
                 <div className="flex items-center space-x-1">
-                  <span>Sort Code / Bank</span>
+                  <span>Sort Code</span>
                   <ArrowUpDown className="w-3 h-3 text-slate-400" />
                 </div>
               </th>
-              <th className="py-2.5 px-3 bg-slate-50">Account Number</th>
+              <th className="whitespace-nowrap py-2.5 px-2 xl:px-3 bg-slate-50">Account No.</th>
               <th
                 onClick={() => handleSort('amount')}
-                className="py-2.5 px-3 text-right cursor-pointer hover:text-slate-900 bg-slate-50"
+                className="whitespace-nowrap py-2.5 px-2 xl:px-3 text-right cursor-pointer hover:text-slate-900 bg-slate-50"
               >
                 <div className="flex items-center justify-end space-x-1">
                   <span>Amount</span>
                   <ArrowUpDown className="w-3 h-3 text-slate-400" />
                 </div>
               </th>
-              {activeTab === 'O4B' && <th className="py-2.5 px-3 bg-slate-50">Payment Reference</th>}
-              <th className="py-2.5 px-3 text-center bg-slate-50">Rail</th>
+              {activeTab === 'O4B' && <th className="whitespace-nowrap py-2.5 px-2 xl:px-3 bg-slate-50">Payment Ref</th>}
+              <th className="whitespace-nowrap py-2.5 px-2 xl:px-3 text-center bg-slate-50">Rail</th>
               {activeTab !== 'O4B' && (
                 <>
-                  <th className="py-2.5 px-3 text-right bg-slate-50">Fee</th>
-                  <th className="py-2.5 px-3 text-right bg-slate-50">Margin ({profitMarginPercent}%)</th>
-                  <th className="py-2.5 px-3 text-right bg-slate-50">Net Profit</th>
+                  <th className="whitespace-nowrap py-2.5 px-2 xl:px-3 text-right bg-slate-50">Fee</th>
+                  <th className="whitespace-nowrap py-2.5 px-2 xl:px-3 text-right bg-slate-50" title={`Margin at ${profitMarginPercent}%`}>Margin</th>
+                  <th className="whitespace-nowrap py-2.5 px-2 xl:px-3 text-right bg-slate-50" title="Net profit (margin - fee)">Net</th>
                 </>
               )}
             </tr>
@@ -833,7 +833,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                         - On O4B tab: Batch numbering and staging
                         - On BACS / FPS: Interactive row checkbox
                     */}
-                    <td className="py-2 px-3 text-center">
+                    <td className="py-2 px-2 xl:px-3 text-center">
                       {activeTab === 'ALL' ? (
                         <div className="flex items-center justify-center">
                           <input
@@ -884,7 +884,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
 
                     {/* O4B Batch Status Column */}
                     {activeTab === 'O4B' && (
-                      <td className="py-2 px-3 text-center font-mono text-[11px]">
+                      <td className="py-2 px-2 xl:px-3 text-center font-mono text-[11px] whitespace-nowrap">
                         {isO4bCommitted ? (
                           <span className="text-emerald-700 font-semibold flex items-center justify-center gap-1">
                             <Check className="w-3 h-3 text-emerald-600" />
@@ -900,7 +900,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                       </td>
                     )}
 
-                    <td className="py-2.5 px-3 font-medium text-slate-900">
+                    <td className="py-2.5 px-2 xl:px-3 font-medium text-slate-900 min-w-[9rem]">
                       <div className={`whitespace-pre-wrap ${failClass(conformance, 'payeeName')}`} title={conformance.payeeName}>
                         {tx.payeeName}
                       </div>
@@ -950,13 +950,15 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                         </div>
                       )}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-slate-700">
-                      <div className={failClass(conformance, 'sortCode')} title={conformance.sortCode}>
+                    <td className="py-2.5 px-2 xl:px-3 font-mono text-slate-700">
+                      <div className={`whitespace-nowrap ${failClass(conformance, 'sortCode')}`} title={conformance.sortCode}>
                         {formatSortCode(tx.sortCode)}
                       </div>
-                      <div className="text-[10px] text-slate-400 font-sans">{bankName}</div>
+                      <div className="text-[10px] text-slate-400 font-sans truncate max-w-[8.5rem]" title={bankName}>
+                        {bankName}
+                      </div>
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-slate-700">
+                    <td className="py-2.5 px-2 xl:px-3 font-mono text-slate-700 whitespace-nowrap">
                       <div className="flex items-center gap-1.5 whitespace-nowrap">
                         {/* 8-digit value as exported (zero-padded imports are converted silently); the raw value is shown only when it can't be converted */}
                         <span className={`select-all ${failClass(conformance, 'accountNumber')}`} title={conformance.accountNumber}>
@@ -989,7 +991,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                       </div>
                     </td>
                     <td
-                      className={`py-2.5 px-3 text-right font-mono font-bold tabular-nums ${failClass(conformance, 'amount', 'text-slate-900')}`}
+                      className={`py-2.5 px-2 xl:px-3 text-right font-mono font-bold tabular-nums whitespace-nowrap ${failClass(conformance, 'amount', 'text-slate-900')}`}
                       title={conformance.amount}
                     >
                       {activeTab === 'O4B' ? (
@@ -1003,7 +1005,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                       )}
                     </td>
                     {activeTab === 'O4B' && (
-                      <td className="py-2.5 px-3 font-mono" title={conformance.payeeReference}>
+                      <td className="py-2.5 px-2 xl:px-3 font-mono whitespace-nowrap" title={conformance.payeeReference}>
                         <div className="flex items-center gap-1.5">
                           <span className={`select-all whitespace-pre ${failClass(conformance, 'payeeReference', 'text-slate-900')}`}>
                             {tx.payeeReference || '—'}
@@ -1014,7 +1016,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                         </div>
                       </td>
                     )}
-                    <td className="py-2.5 px-3 text-center">
+                    <td className="py-2.5 px-2 xl:px-3 text-center">
                       <select
                         aria-label={`Assigned rail for ${tx.payeeName}`}
                         value={tx.assignedRail}
@@ -1027,9 +1029,10 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                             : 'bg-red-50 text-red-800 border-red-300'
                         }`}
                       >
-                        <option value="O4B">O4B (£{fees.O4B.toFixed(2)} / tx)</option>
-                        <option value="BACS">BACS (£{fees.BACS.toFixed(2)} / tx)</option>
-                        <option value="FasterPay">FPS (£{fees.FasterPay.toFixed(2)} / tx)</option>
+                        {/* Short labels so rows fit a split screen; the fee is in its own column (and the rail cards) */}
+                        <option value="O4B">O4B</option>
+                        <option value="BACS">BACS</option>
+                        <option value="FasterPay">FPS</option>
                       </select>
                       {tx.isManualOverride && (
                         <div className="text-[10px] text-amber-600 font-medium mt-0.5">
@@ -1039,18 +1042,18 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                     </td>
                     {activeTab !== 'O4B' && (
                       <>
-                        <td className="py-2.5 px-3 text-right font-mono tabular-nums">
+                        <td className="py-2.5 px-2 xl:px-3 text-right font-mono tabular-nums">
                           {fee === 0 ? (
                             <span className="text-emerald-600 font-semibold">£0.00</span>
                           ) : (
                             <span className="text-slate-600">£{fee.toFixed(2)}</span>
                           )}
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono tabular-nums text-slate-600">
+                        <td className="py-2.5 px-2 xl:px-3 text-right font-mono tabular-nums text-slate-600">
                           {formatGBP(margin)}
                         </td>
                         <td
-                          className={`py-2.5 px-3 text-right font-mono font-semibold tabular-nums ${
+                          className={`py-2.5 px-2 xl:px-3 text-right font-mono font-semibold tabular-nums ${
                             net >= 0 ? 'text-emerald-600' : 'text-rose-600'
                           }`}
                         >
@@ -1062,7 +1065,7 @@ export const BatchWindowView: React.FC<BatchWindowViewProps> = ({
                   {isExpanded && (
                     // Z-fold review panel: each source record is a fold, alternately offset, adding up to the payment
                     <tr id={`fold-${tx.id}`} className="bg-violet-50/40">
-                      <td colSpan={activeTab === 'O4B' ? 8 : 9} className="px-3 pb-3 pt-0">
+                      <td colSpan={activeTab === 'O4B' ? 8 : 9} className="px-2 xl:px-3 pb-3 pt-0">
                         <div className="ml-10 border-l-2 border-violet-300 pl-3 pt-2 space-y-1">
                           <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold text-violet-900">
                             <span>{sourceRecordCount(tx)} identical records consolidated into one payment</span>
